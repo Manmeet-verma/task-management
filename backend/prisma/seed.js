@@ -42,6 +42,11 @@ async function main() {
     createdAt: new Date().toISOString(),
   });
 
+  await set(ref(db, 'emailIndex/admin@example.com'.replace(/\./g, ',')), { userId: adminId, email: 'admin@example.com' });
+  await set(ref(db, 'emailIndex/user@example.com'.replace(/\./g, ',')), { userId: userId, email: 'user@example.com' });
+  await set(ref(db, 'usernameIndex/admin'), { userId: adminId, username: 'admin' });
+  await set(ref(db, 'usernameIndex/user'), { userId: userId, username: 'user' });
+
   const task1Ref = push(ref(db, 'tasks'));
   await set(task1Ref, {
     id: task1Ref.key,
@@ -87,9 +92,11 @@ async function main() {
     updatedAt: new Date().toISOString(),
   });
 
-  console.log('Seed data created successfully in Firebase Realtime Database');
+  console.log('Seed data created successfully!');
+  console.log('');
+  console.log('=== DEMO CREDENTIALS ===');
   console.log('Admin: admin@example.com / admin123');
-  console.log('User: user@example.com / user123');
+  console.log('User:  user@example.com  / user123');
 }
 
 main().catch((e) => {

@@ -84,6 +84,15 @@ export const api = {
         body: { action, adminComments },
       }),
   },
+  admin: {
+    getUsers: () => request<User[]>("/admin/users"),
+    createUser: (data: { username: string; email: string; password: string; role: string }) =>
+      request<User>("/admin/users", { method: "POST", body: data }),
+    updateUser: (id: string, data: Partial<{ username: string; email: string; password: string; role: string }>) =>
+      request<User>(`/admin/users/${id}`, { method: "PUT", body: data }),
+    deleteUser: (id: string) =>
+      request<{ message: string }>(`/admin/users/${id}`, { method: "DELETE" }),
+  },
 };
 
 export interface User {
