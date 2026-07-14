@@ -1,0 +1,54 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String       @id @default(uuid())
+  username  String       @unique
+  email     String       @unique
+  password  String
+  role      String       @default("USER")
+  createdAt DateTime     @default(now())
+  tasks     Task[]       @relation("AssignedTasks")
+  createdTasks Task[]    @relation("CreatedTasks")
+  submissions Submission[]
+}
+
+model Task {
+  id          String       @id @default(uuid())
+  name        String
+  category    String
+  siteProject String
+  deadline    DateTime
+  userDeadline DateTime?
+  priority    String       @default("MEDIUM")
+  description String
+  status      String       @default("AVAILABLE")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  createdById String
+  createdBy   User         @relation("CreatedTasks", fields: [createdById], references: [id])
+  assignedToId String?
+  assignedTo  User?        @relation("AssignedTasks", fields: [assignedToId], references: [id])
+  submissions Submission[]
+}
+
+model Submission {
+  id            String   @id @default(uuid())
+  taskId        String
+  task          Task     @relation(fields: [taskId], references: [id])
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  reportUrl     String?
+  comments      String?
+  adminComments String?
+  pendingReason String?
+  status        String   @default("SUBMITTED")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}

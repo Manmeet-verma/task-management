@@ -1,0 +1,139 @@
+const API_BASE = "/api";
+
+function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("token");
+}
+
+async function request<T>(
+  path: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const token = getToken();
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string>),
+  };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  if (
+    options.body &&
+    !(options.body instanceof FormData)
+  ) {
+    headers["Content-Type"] = "application/json";
+    options.body = JSON.stringify(options.body);
+  }
+
+  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Request failed");
+  return data as T;
+}
+
+export const api = {
+  auth: {
+    login: (email: string, password: string) =>
+      request<{ token: string; user: User }>("/auth/login", {
+        method: "POST",
+        body: { email, password },
+      }),
+    register: (username: string, email: string, password: string) =>
+      request<{ token: string; user: User }>("/auth/register", {
+        method: "POST",
+        body: { username, email, password },
+      }),
+    me: () => request<User>("/auth/me"),
+  },
+  tasks: {
+    getAll: () => request<Task[]>("/tasks"),
+    getAvailable: () => request<Task[]>("/tasks/available"),
+    getMine: () => request<Task[]>("/tasks/mine"),
+    getPending: () => request<Task[]>("/tasks/pending"),
+    getById: (id: string) => request<Task>(`/tasks/${id}`),
+    create: (data: CreateTaskPayload) =>
+      request<Task>("/tasks", { method: "POST", body: data }),
+    update: (id: string, data: Partial<CreateTaskPayload & { status: string }>) =>
+      request<Task>(`/tasks/${id}`, { method: "PUT", body: data }),
+    delete: (id: string) =>
+      request<{ message: string }>(`/tasks/${id}`, { method: "DELETE" }),
+    claim: (id: string, userDeadline?: string) =>
+      request<Task>(`/tasks/${id}/claim`, {
+        method: "POST",
+        body: { userDeadline },
+      }),
+    complete: (id: string) =>
+      request<Task>(`/tasks/${id}/complete`, { method: "POST" }),
+    pendingResubmit: (id: string, pendingReason: string) =>
+      request<Task>(`/tasks/${id}/pending-resubmit`, {
+        method: "POST",
+        body: { pendingReason },
+      }),
+  },
+  submissions: {
+    getAll: () => request<Submission[]>("/submissions"),
+    getByTask: (taskId: string) =>
+      request<Submission[]>(`/submissions/${taskId}`),
+    submit: (taskId: string, formData: FormData) =>
+      request<Submission>(`/submissions/${taskId}/submit`, {
+        method: "POST",
+        body: formData,
+      }),
+    review: (
+      id: string,
+      action: "accept" | "reject",
+      adminComments?: string
+    ) =>
+      request<{ message: string }>(`/submissions/${id}/review`, {
+        method: "PUT",
+        body: { action, adminComments },
+      }),
+  },
+};
+
+export interface User {
+  id: string;
+  username: string;
+  email: string;
+  role: "ADMIN" | "USER";
+}
+
+export interface Task {
+  id: string;
+  name: string;
+  category: string;
+  siteProject: string;
+  deadline: string;
+  userDeadline?: string | null;
+  priority: string;
+  description: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  createdById: string;
+  createdBy?: { id: string; username: string };
+  assignedToId?: string;
+  assignedTo?: { id: string; username: string };
+  submissions?: Submission[];
+}
+
+export interface Submission {
+  id: string;
+  taskId: string;
+  task?: { id: string; name: string };
+  userId: string;
+  user?: { id: string; username: string };
+  reportUrl?: string;
+  comments?: string;
+  adminComments?: string;
+  pendingReason?: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTaskPayload {
+  name: string;
+  category: string;
+  siteProject: string;
+  deadline: string;
+  priority: string;
+  description: string;
+}
