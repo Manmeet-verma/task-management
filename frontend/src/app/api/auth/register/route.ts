@@ -1,23 +1,25 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { db, ref, get, push, set } from "@/lib/firebase";
+import { db, ref, get, set, push } from "@/lib/firebase";
 
 export async function POST(request: Request) {
   try {
     const { username, email, password } = await request.json();
 
-    const usersRef = ref(db, "users");
-    const snapshot = await get(usersRef);
+    const emailKey = email.replace(/\./g, ",");
+    const emailIndexRef = ref(db, `emailIndex/${emailKey}`);
+    const emailSnapshot = await get(emailIndexRef);
 
-    if (snapshot.exists()) {
-      const users = snapshot.val();
-      const exists = Object.values(users as Record<string, any>).find(
-        (u: any) => u.email === email || u.username === username
-      );
-      if (exists) {
-        return NextResponse.json({ error: "User already exists" }, { status: 400 });
-      }
+    if (emailSnapshot.exists()) {
+      return NextResponse.json({ error: "User already exists" }, { status: 400 });
+    }
+
+    const usernameRef = ref(db, `usernameIndex/${username}`);
+    const usernameSnapshot = await get(usernameRef);
+
+    if (usernameSnapshot.exists()) {
+      return NextResponse.json({ error: "User already exists" }, { status: 400 });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -34,6 +36,8 @@ export async function POST(request: Request) {
     };
 
     await set(newUserRef, user);
+    await set(emailIndexRef, { userId, email });
+    await set(usernameRef, { userId, username });
 
     const token = jwt.sign(
       { id: userId, username, role: "USER" },
