@@ -7,22 +7,20 @@ function getToken(): string | null {
 
 async function request<T>(
   path: string,
-  options: RequestInit = {}
+  options: { method?: string; headers?: Record<string, string>; body?: unknown } = {}
 ): Promise<T> {
   const token = getToken();
-  const headers: Record<string, string> = {
-    ...(options.headers as Record<string, string>),
-  };
+  const headers: Record<string, string> = { ...options.headers };
   if (token) headers["Authorization"] = `Bearer ${token}`;
-  if (
-    options.body &&
-    !(options.body instanceof FormData)
-  ) {
+  let fetchBody: BodyInit | undefined;
+  if (options.body && !(options.body instanceof FormData)) {
     headers["Content-Type"] = "application/json";
-    options.body = JSON.stringify(options.body);
+    fetchBody = JSON.stringify(options.body);
+  } else {
+    fetchBody = options.body as BodyInit | undefined;
   }
 
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  const res = await fetch(`${API_BASE}${path}`, { method: options.method, headers, body: fetchBody });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Request failed");
   return data as T;
