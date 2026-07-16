@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db, ref, get, update } from "@/lib/firebase";
+import { db, ref, get, update, push, set } from "@/lib/firebase";
 import { verifyAuth } from "@/lib/auth";
 
 export async function POST(
@@ -18,10 +18,22 @@ export async function POST(
     const task = snapshot.val();
     if (task.assignedToId !== user.id)
       return NextResponse.json({ error: "Not your task" }, { status: 403 });
-    if (task.status !== "ACCEPTED")
-      return NextResponse.json({ error: "Task must be accepted by admin first" }, { status: 400 });
+    if (task.status === "COMPLETED" || task.status === "AVAILABLE")
+      return NextResponse.json({ error: "Task cannot be completed in current status" }, { status: 400 });
 
     await update(taskRef, { status: "COMPLETED", updatedAt: new Date().toISOString() });
+
+    const newSubRef = push(ref(db, "submissions"));
+    await set(newSubRef, {
+      id: newSubRef.key,
+      taskId: id,
+      userId: user.id,
+      status: "COMPLETED",
+      comments: "Task marked as completed by user",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
     const updated = (await get(taskRef)).val();
     return NextResponse.json(updated);
   } catch (err: any) {

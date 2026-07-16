@@ -99,9 +99,7 @@ export default function TaskDetailPage() {
 
   if (loading || !user || !task) return null;
 
-  const canSubmit = task.status === "IN_PROGRESS" || task.status === "REWORK" || task.status === "PENDING_RESUBMIT";
-  const canComplete = task.status === "ACCEPTED";
-  const canPendingResubmit = task.status === "IN_PROGRESS" || task.status === "REWORK" || task.status === "ACCEPTED";
+  const isCompleted = task.status === "COMPLETED";
 
   return (
     <div className="min-h-screen">
@@ -147,99 +145,68 @@ export default function TaskDetailPage() {
           <p className="text-gray-700">{task.description}</p>
         </div>
 
-        {canSubmit && (
+        {!isCompleted && (
           <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-4">Submit Work</h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Upload Report
-                </label>
-                <input
-                  type="file"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
-                  className="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Comments
-                </label>
-                <textarea
-                  value={comments}
-                  onChange={(e) => setComments(e.target.value)}
-                  rows={3}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="Add any comments about your work..."
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 disabled:opacity-50"
-              >
-                {submitting ? "Submitting..." : "Submit for Review"}
-              </button>
-            </form>
-          </div>
-        )}
-
-        {canComplete && (
-          <div className="bg-emerald-50 rounded-lg border border-emerald-200 p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-2 text-emerald-800">Task Accepted!</h2>
-            <p className="text-sm text-emerald-700 mb-4">
-              Admin has accepted your work. You can now mark this task as completed.
+            <h2 className="text-lg font-semibold mb-4">Take Action</h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Choose an option for this task:
             </p>
-            <button
-              onClick={handleComplete}
-              disabled={completing}
-              className="bg-emerald-600 text-white px-4 py-2 rounded-md hover:bg-emerald-700 disabled:opacity-50"
-            >
-              {completing ? "Completing..." : "Mark as Completed"}
-            </button>
-          </div>
-        )}
-
-        {canPendingResubmit && (
-          <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-            {!showPendingForm ? (
+            <div className="flex gap-4">
+              <button
+                onClick={handleComplete}
+                disabled={completing}
+                className="flex-1 bg-emerald-600 text-white px-4 py-3 rounded-md hover:bg-emerald-700 disabled:opacity-50 font-medium"
+              >
+                {completing ? "Completing..." : "Complete"}
+              </button>
               <button
                 onClick={() => setShowPendingForm(true)}
-                className="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600 text-sm"
+                className="flex-1 bg-orange-500 text-white px-4 py-3 rounded-md hover:bg-orange-600 font-medium"
               >
-                Mark as Pending
+                Pending
               </button>
-            ) : (
-              <form onSubmit={handlePendingResubmit} className="space-y-4">
-                <h2 className="text-lg font-semibold">Why is this pending?</h2>
-                <textarea
-                  value={pendingReason}
-                  onChange={(e) => setPendingReason(e.target.value)}
-                  rows={3}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="Explain why this task is pending..."
-                />
-                <div className="flex gap-2">
-                  <button
-                    type="submit"
-                    disabled={pendingSubmitting}
-                    className="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600 disabled:opacity-50"
-                  >
-                    {pendingSubmitting ? "Submitting..." : "Submit Pending"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowPendingForm(false);
-                      setPendingReason("");
-                    }}
-                    className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            )}
+            </div>
+          </div>
+        )}
+
+        {isCompleted && (
+          <div className="bg-emerald-50 rounded-lg border border-emerald-200 p-6 mb-6">
+            <h2 className="text-lg font-semibold mb-2 text-emerald-800">Task Completed!</h2>
+            <p className="text-sm text-emerald-700">This task has been marked as completed.</p>
+          </div>
+        )}
+
+        {showPendingForm && (
+          <div className="bg-white rounded-lg border border-orange-200 p-6 mb-6">
+            <form onSubmit={handlePendingResubmit} className="space-y-4">
+              <h2 className="text-lg font-semibold">Why is this pending?</h2>
+              <textarea
+                value={pendingReason}
+                onChange={(e) => setPendingReason(e.target.value)}
+                rows={3}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Explain why this task is pending..."
+              />
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={pendingSubmitting}
+                  className="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600 disabled:opacity-50"
+                >
+                  {pendingSubmitting ? "Submitting..." : "Submit Pending"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPendingForm(false);
+                    setPendingReason("");
+                  }}
+                  className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
           </div>
         )}
 

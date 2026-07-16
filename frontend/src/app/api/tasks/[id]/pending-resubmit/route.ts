@@ -21,6 +21,8 @@ export async function POST(
     const task = snapshot.val();
     if (task.assignedToId !== user.id)
       return NextResponse.json({ error: "Not your task" }, { status: 403 });
+    if (task.status === "COMPLETED")
+      return NextResponse.json({ error: "Cannot mark completed task as pending" }, { status: 400 });
     if (!pendingReason)
       return NextResponse.json({ error: "Pending reason is required" }, { status: 400 });
 

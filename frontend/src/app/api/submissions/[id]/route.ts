@@ -4,13 +4,13 @@ import { verifyAuth } from "@/lib/auth";
 
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ taskId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = verifyAuth(request);
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { taskId } = await params;
+    const { id } = await params;
     const subsRef = ref(db, "submissions");
     const snapshot = await get(subsRef);
 
@@ -18,7 +18,7 @@ export async function GET(
 
     const allSubs = Object.values(snapshot.val() as Record<string, any>);
     const taskSubs = allSubs
-      .filter((s: any) => s.taskId === taskId)
+      .filter((s: any) => s.taskId === id)
       .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     const usersSnapshot = await get(ref(db, "users"));
