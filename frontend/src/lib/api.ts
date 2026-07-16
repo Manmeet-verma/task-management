@@ -57,6 +57,14 @@ export const api = {
         method: "POST",
         body: { userDeadline },
       }),
+    accept: (id: string) =>
+      request<Task>(`/tasks/${id}/accept`, { method: "POST" }),
+    reject: (id: string, reason: string) =>
+      request<Task>(`/tasks/${id}/reject`, {
+        method: "POST",
+        body: { reason },
+      }),
+    getClaimed: () => request<Task[]>("/tasks/claimed"),
     complete: (id: string) =>
       request<Task>(`/tasks/${id}/complete`, { method: "POST" }),
     pendingResubmit: (id: string, pendingReason: string) =>
@@ -112,6 +120,7 @@ export interface Task {
   priority: string;
   description: string;
   status: string;
+  rejectReason?: string;
   createdAt: string;
   updatedAt: string;
   createdById: string;

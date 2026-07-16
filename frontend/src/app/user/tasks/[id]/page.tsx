@@ -14,9 +14,6 @@ export default function TaskDetailPage() {
   const taskId = params.id as string;
   const [task, setTask] = useState<Task | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
-  const [comments, setComments] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const [submitting, setSubmitting] = useState(false);
   const [pendingReason, setPendingReason] = useState("");
   const [showPendingForm, setShowPendingForm] = useState(false);
   const [completing, setCompleting] = useState(false);
@@ -44,24 +41,6 @@ export default function TaskDetailPage() {
       setSubmissions(s);
     } catch (err) {
       console.error(err);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    try {
-      const formData = new FormData();
-      if (file) formData.append("report", file);
-      if (comments) formData.append("comments", comments);
-      await api.submissions.submit(taskId, formData);
-      setComments("");
-      setFile(null);
-      loadTask();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -99,6 +78,9 @@ export default function TaskDetailPage() {
 
   if (loading || !user || !task) return null;
 
+  const isWaitingForReview = task.status === "IN_PROGRESS";
+  const isAccepted = task.status === "ACCEPTED";
+  const isRejected = task.status === "REJECTED";
   const isCompleted = task.status === "COMPLETED";
 
   return (
@@ -145,11 +127,20 @@ export default function TaskDetailPage() {
           <p className="text-gray-700">{task.description}</p>
         </div>
 
-        {!isCompleted && (
+        {isWaitingForReview && (
+          <div className="bg-yellow-50 rounded-lg border border-yellow-200 p-6 mb-6">
+            <h2 className="text-lg font-semibold mb-2 text-yellow-800">Waiting for Admin Review</h2>
+            <p className="text-sm text-yellow-700">
+              Your task is under review. Admin will accept or reject it soon.
+            </p>
+          </div>
+        )}
+
+        {isAccepted && (
           <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
             <h2 className="text-lg font-semibold mb-4">Take Action</h2>
             <p className="text-sm text-gray-600 mb-4">
-              Choose an option for this task:
+              Admin has accepted your task. Choose an option:
             </p>
             <div className="flex gap-4">
               <button
@@ -166,6 +157,21 @@ export default function TaskDetailPage() {
                 Pending
               </button>
             </div>
+          </div>
+        )}
+
+        {isRejected && (
+          <div className="bg-red-50 rounded-lg border border-red-200 p-6 mb-6">
+            <h2 className="text-lg font-semibold mb-2 text-red-800">Task Rejected</h2>
+            <p className="text-sm text-red-700 mb-1">
+              Admin has rejected this task.
+            </p>
+            {task.rejectReason && (
+              <div className="mt-3 bg-white border border-red-200 rounded-md p-3">
+                <p className="text-sm font-medium text-gray-700 mb-1">Reason:</p>
+                <p className="text-sm text-red-600">{task.rejectReason}</p>
+              </div>
+            )}
           </div>
         )}
 

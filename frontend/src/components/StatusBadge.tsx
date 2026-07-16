@@ -11,6 +11,7 @@ const statusStyles: Record<string, string> = {
 
 const statusLabels: Record<string, string> = {
   PENDING_RESUBMIT: "Pending Resubmit",
+  IN_PROGRESS: "Under Review",
 };
 
 export default function StatusBadge({ status }: { status: string }) {
