@@ -92,6 +92,17 @@ export async function DELETE(
 
     const { id } = await params;
     await remove(ref(db, `tasks/${id}`));
+
+    const subsSnapshot = await get(ref(db, "submissions"));
+    if (subsSnapshot.exists()) {
+      const allSubs = subsSnapshot.val() as Record<string, any>;
+      for (const [key, sub] of Object.entries(allSubs)) {
+        if ((sub as any).taskId === id) {
+          await remove(ref(db, `submissions/${key}`));
+        }
+      }
+    }
+
     return NextResponse.json({ message: "Task deleted" });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

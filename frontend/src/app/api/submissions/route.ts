@@ -22,10 +22,11 @@ export async function GET(request: Request) {
     const tasks = tasksSnapshot.exists() ? (tasksSnapshot.val() as Record<string, any>) : {};
 
     const enriched = allSubs
+      .filter((s: any) => tasks[s.taskId])
       .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .map((s: any) => ({
         ...s,
-        task: tasks[s.taskId] ? { id: s.taskId, name: tasks[s.taskId].name } : null,
+        task: { id: s.taskId, name: tasks[s.taskId].name },
         user: users[s.userId] ? { id: s.userId, username: users[s.userId].username } : null,
       }));
 
