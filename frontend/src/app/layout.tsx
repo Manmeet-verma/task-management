@@ -31,6 +31,13 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors">
         <ThemeProvider>
           <ToastProvider>
