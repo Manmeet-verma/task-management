@@ -101,6 +101,13 @@ export const api = {
     deleteUser: (id: string) =>
       request<{ message: string }>(`/admin/users/${id}`, { method: "DELETE" }),
   },
+  categories: {
+    getAll: () => request<Category[]>("/categories"),
+    create: (name: string) =>
+      request<Category>("/categories", { method: "POST", body: { name } }),
+    delete: (id: string) =>
+      request<{ message: string }>("/categories", { method: "DELETE", body: { id } }),
+  },
 };
 
 export interface User {
@@ -177,5 +184,11 @@ export interface Notification {
   type: string;
   taskId?: string;
   read: boolean;
+  createdAt: string;
+}
+
+export interface Category {
+  id: string;
+  name: string;
   createdAt: string;
 }

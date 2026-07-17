@@ -3,13 +3,14 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
-import { api, type User } from "@/lib/api";
+import { api, type User, type Category } from "@/lib/api";
 import Navbar from "@/components/Navbar";
 
 export default function NewTaskPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [form, setForm] = useState({
     name: "",
     category: "",
@@ -25,6 +26,7 @@ export default function NewTaskPage() {
   useEffect(() => {
     if (user?.role === "ADMIN") {
       api.admin.getUsers().then((u) => setUsers(u.filter((x) => x.role === "USER"))).catch(() => {});
+      api.categories.getAll().then(setCategories).catch(() => {});
     }
   }, [user]);
 
@@ -60,12 +62,16 @@ export default function NewTaskPage() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
               <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} required className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 <option value="">Select category</option>
-                <option value="Development">Development</option>
-                <option value="Design">Design</option>
-                <option value="Documentation">Documentation</option>
-                <option value="Repair">Repair</option>
-                <option value="Testing">Testing</option>
-                <option value="Other">Other</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.name}>{c.name}</option>
+                ))}
+                {categories.length === 0 && <>
+                  <option value="Development">Development</option>
+                  <option value="Design">Design</option>
+                  <option value="Documentation">Documentation</option>
+                  <option value="Repair">Repair</option>
+                  <option value="Testing">Testing</option>
+                </>}
               </select>
             </div>
             <div>
