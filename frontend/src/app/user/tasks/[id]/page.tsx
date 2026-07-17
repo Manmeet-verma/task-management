@@ -17,6 +17,8 @@ export default function TaskDetailPage() {
   const [pendingReason, setPendingReason] = useState("");
   const [showPendingForm, setShowPendingForm] = useState(false);
   const [showExtendForm, setShowExtendForm] = useState(false);
+  const [showCompleteForm, setShowCompleteForm] = useState(false);
+  const [completeRemarks, setCompleteRemarks] = useState("");
   const [extendDeadline, setExtendDeadline] = useState("");
   const [extendReason, setExtendReason] = useState("");
   const [completing, setCompleting] = useState(false);
@@ -39,10 +41,16 @@ export default function TaskDetailPage() {
     } catch (err) { console.error(err); }
   };
 
-  const handleComplete = async () => {
-    if (!confirm("Mark this task as completed?")) return;
+  const handleComplete = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!completeRemarks.trim()) { alert("Please provide remarks"); return; }
     setCompleting(true);
-    try { await api.tasks.complete(taskId); loadTask(); } catch (err) { console.error(err); }
+    try {
+      await api.tasks.complete(taskId, completeRemarks.trim());
+      setCompleteRemarks("");
+      setShowCompleteForm(false);
+      loadTask();
+    } catch (err) { console.error(err); }
     finally { setCompleting(false); }
   };
 
@@ -65,7 +73,6 @@ export default function TaskDetailPage() {
   if (loading || !user || !task) return null;
 
   const canAct = !task.locked && task.status !== "COMPLETED" && task.status !== "LOCKED" && task.status !== "REJECTED" && task.status !== "PENDING";
-  const isWaitingReview = task.status === "ASSIGNED" || task.status === "IN_PROGRESS";
 
   return (
     <div className="min-h-screen dark:bg-gray-900">
@@ -86,7 +93,7 @@ export default function TaskDetailPage() {
             <p><span className="font-medium">Priority:</span> {task.priority}</p>
             {task.extensionCount > 0 && <p className="text-red-600 dark:text-red-400"><span className="font-medium">Extensions:</span> {task.extensionCount}</p>}
           </div>
-          <p className="text-gray-700 dark:text-gray-300">{task.description}</p>
+          {task.description && <p className="text-gray-700 dark:text-gray-300">{task.description}</p>}
         </div>
 
         {task.locked && (
@@ -118,7 +125,12 @@ export default function TaskDetailPage() {
           <div className="bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800 p-6 mb-6">
             <h2 className="text-lg font-semibold text-green-800 dark:text-green-300">Completed</h2>
             <p className="text-sm text-green-700 dark:text-green-400">Waiting for admin to verify and lock this task.</p>
-            <p className="text-sm text-green-600 dark:text-green-400 mt-1 italic">&quot;{user.username} has completed the job but needs intention of {task.createdBy?.username || "Admin"}&quot;</p>
+            {task.completedRemarks && (
+              <div className="mt-3 bg-white dark:bg-gray-800 border border-green-200 dark:border-green-800 rounded-md p-3">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Your Remarks:</p>
+                <p className="text-sm text-green-600 dark:text-green-400 italic">{task.completedRemarks}</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -126,8 +138,8 @@ export default function TaskDetailPage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
             <h2 className="text-lg font-semibold mb-4 dark:text-white">Take Action</h2>
             <div className="grid grid-cols-3 gap-4">
-              <button onClick={handleComplete} disabled={completing} className="bg-green-600 text-white px-4 py-3 rounded-md hover:bg-green-700 disabled:opacity-50 font-medium text-sm">
-                {completing ? "Completing..." : "Complete"}
+              <button onClick={() => setShowCompleteForm(true)} className="bg-green-600 text-white px-4 py-3 rounded-md hover:bg-green-700 font-medium text-sm">
+                Complete
               </button>
               <button onClick={() => setShowExtendForm(true)} className="bg-orange-500 text-white px-4 py-3 rounded-md hover:bg-orange-600 font-medium text-sm">
                 Extend Date
@@ -136,6 +148,20 @@ export default function TaskDetailPage() {
                 Pending
               </button>
             </div>
+          </div>
+        )}
+
+        {showCompleteForm && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-green-200 dark:border-green-800 p-6 mb-6">
+            <form onSubmit={handleComplete} className="space-y-4">
+              <h2 className="text-lg font-semibold dark:text-white">Complete Task</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Please provide remarks about the action you have taken on this task.</p>
+              <textarea value={completeRemarks} onChange={(e) => setCompleteRemarks(e.target.value)} rows={4} className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Describe what you did to complete this task..." required />
+              <div className="flex gap-2">
+                <button type="submit" disabled={completing} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-50">{completing ? "Completing..." : "Submit & Complete"}</button>
+                <button type="button" onClick={() => { setShowCompleteForm(false); setCompleteRemarks(""); }} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">Cancel</button>
+              </div>
+            </form>
           </div>
         )}
 

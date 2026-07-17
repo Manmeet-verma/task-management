@@ -55,7 +55,6 @@ export default function UserPage() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {myTasks.map((task) => {
               const canAct = !task.locked && task.status !== "COMPLETED" && task.status !== "LOCKED" && task.status !== "REJECTED";
-              const isWaiting = task.status === "ASSIGNED" || task.status === "PENDING" || task.status === "COMPLETED";
               return (
                 <div key={task.id} className={`rounded-lg border p-5 ${getStatusColor(task)} ${task.extensionCount > 1 ? "border-red-400 dark:border-red-600" : ""}`}>
                   <div className="flex items-start justify-between mb-3">
@@ -68,6 +67,7 @@ export default function UserPage() {
                     <p>Deadline: {new Date(task.deadline).toLocaleDateString()}</p>
                     {task.userDeadline && <p>Your Deadline: {new Date(task.userDeadline).toLocaleDateString()}</p>}
                     {task.extensionCount > 0 && <p className="text-red-600 dark:text-red-400">Extensions: {task.extensionCount}</p>}
+                    {task.description && <p className="text-gray-500 dark:text-gray-500 text-xs italic line-clamp-2">{task.description}</p>}
                   </div>
 
                   {task.status === "REJECTED" && task.rejectReason && (
@@ -86,7 +86,22 @@ export default function UserPage() {
                   {task.status === "COMPLETED" && !task.locked && (
                     <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded p-2 mb-3">
                       <p className="text-xs text-green-700 dark:text-green-300">Completed. Waiting for admin to verify...</p>
-                      <p className="text-xs text-green-600 dark:text-green-400 mt-1 italic">&quot;{user.username} has completed the job but needs intention of {task.createdBy?.username || "Admin"}&quot;</p>
+                      {task.completedRemarks && (
+                        <p className="text-xs text-green-600 dark:text-green-400 mt-1 italic line-clamp-2">Remarks: {task.completedRemarks}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {task.extendStatus === "PENDING" && (
+                    <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded p-2 mb-3">
+                      <p className="text-xs text-orange-700 dark:text-orange-300">Extension request pending...</p>
+                      {task.extendReason && <p className="text-xs text-orange-600 dark:text-orange-400 mt-1 italic">Reason: {task.extendReason}</p>}
+                    </div>
+                  )}
+
+                  {task.lastExtReason && task.extendStatus !== "PENDING" && (
+                    <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-2 mb-3">
+                      <p className="text-xs text-gray-600 dark:text-gray-400">Last Extension Reason: {task.lastExtReason}</p>
                     </div>
                   )}
 

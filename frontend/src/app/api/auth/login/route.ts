@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { db, ref, get, set } from "@/lib/firebase";
+import crypto from "crypto";
 
 export async function POST(request: Request) {
   try {
@@ -29,8 +30,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 400 });
     }
 
+    const sessionId = crypto.randomUUID();
+    await set(ref(db, `users/${userId}/sessionId`), sessionId);
+
     const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role },
+      { id: user.id, username: user.username, role: user.role, sessionId },
       process.env.JWT_SECRET!,
       { expiresIn: "7d" }
     );

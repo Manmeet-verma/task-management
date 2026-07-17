@@ -32,8 +32,11 @@ export async function POST(
     if (task.extendStatus !== "PENDING")
       return NextResponse.json({ error: "No pending extension request" }, { status: 400 });
 
+    const extReason = task.extendReason || "";
+
     await update(taskRef, {
       extendStatus: "REJECTED",
+      lastExtReason: extReason,
       extendDeadline: null,
       extendReason: null,
       updatedAt: new Date().toISOString(),

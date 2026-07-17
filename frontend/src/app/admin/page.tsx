@@ -20,9 +20,10 @@ export default function AdminPage() {
   const [filterStatus, setFilterStatus] = useState("");
   const [page, setPage] = useState(1);
   const perPage = 10;
-  const [tab, setTab] = useState<"tasks" | "users" | "categories">("tasks");
+  const [tab, setTab] = useState<"tasks" | "closed" | "users" | "categories">("tasks");
   const [reassigningId, setReassigningId] = useState<string | null>(null);
   const [reassignUserId, setReassignUserId] = useState("");
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
 
   const [showUserForm, setShowUserForm] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -120,13 +121,23 @@ export default function AdminPage() {
     try { await api.categories.delete(id); loadData(); } catch (err) { console.error(err); }
   };
 
-  const filtered = tasks.filter((t) => {
+  const activeTasks = tasks.filter((t) => t.status !== "LOCKED");
+  const closedTasks = tasks.filter((t) => t.status === "LOCKED");
+
+  const filteredActive = activeTasks.filter((t) => {
     const matchSearch = !search || t.name.toLowerCase().includes(search.toLowerCase()) || (t.assignedTo?.username || "").toLowerCase().includes(search.toLowerCase()) || (t.siteProject || "").toLowerCase().includes(search.toLowerCase());
     const matchStatus = !filterStatus || t.status === filterStatus;
     return matchSearch && matchStatus;
   });
-  const totalPages = Math.ceil(filtered.length / perPage);
-  const paginated = filtered.slice((page - 1) * perPage, page * perPage);
+
+  const filteredClosed = closedTasks.filter((t) => {
+    const matchSearch = !search || t.name.toLowerCase().includes(search.toLowerCase()) || (t.assignedTo?.username || "").toLowerCase().includes(search.toLowerCase()) || (t.siteProject || "").toLowerCase().includes(search.toLowerCase());
+    return matchSearch;
+  });
+
+  const currentList = tab === "closed" ? filteredClosed : filteredActive;
+  const totalPages = Math.ceil(currentList.length / perPage);
+  const paginated = currentList.slice((page - 1) * perPage, page * perPage);
 
   if (loading || !user) return null;
 
@@ -147,11 +158,12 @@ export default function AdminPage() {
 
         <div className="flex gap-4 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
           {[
-            { key: "tasks" as const, label: "Tasks", count: tasks.length },
+            { key: "tasks" as const, label: "Tasks", count: activeTasks.length },
+            { key: "closed" as const, label: "Closed", count: closedTasks.length },
             { key: "users" as const, label: "Users", count: users.length },
             { key: "categories" as const, label: "Categories", count: categories.length },
           ].map((t) => (
-            <button key={t.key} onClick={() => setTab(t.key)} className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${tab === t.key ? "border-indigo-600 text-indigo-600 dark:text-indigo-400" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"}`}>
+            <button key={t.key} onClick={() => { setTab(t.key); setPage(1); setSearch(""); setFilterStatus(""); }} className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${tab === t.key ? "border-indigo-600 text-indigo-600 dark:text-indigo-400" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"}`}>
               {t.label} ({t.count})
             </button>
           ))}
@@ -198,18 +210,19 @@ export default function AdminPage() {
 
         {loadingData ? (
           <div className="text-center py-12 text-gray-500 dark:text-gray-400">Loading...</div>
-        ) : tab === "tasks" ? (
+        ) : tab === "tasks" || tab === "closed" ? (
           <>
             <div className="flex gap-4 mb-4">
               <input type="text" placeholder="Search tasks..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} className="flex-1 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-              <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }} className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 dark:text-white">
-                <option value="">All Status</option>
-                <option value="ASSIGNED">Assigned</option>
-                <option value="IN_PROGRESS">In Progress</option>
-                <option value="PENDING">Pending</option>
-                <option value="COMPLETED">Completed</option>
-                <option value="LOCKED">Locked</option>
-              </select>
+              {tab === "tasks" && (
+                <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }} className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 dark:text-white">
+                  <option value="">All Status</option>
+                  <option value="ASSIGNED">Assigned</option>
+                  <option value="IN_PROGRESS">In Progress</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="COMPLETED">Completed</option>
+                </select>
+              )}
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">
               <table className="w-full text-sm">
@@ -253,6 +266,11 @@ export default function AdminPage() {
                             {canManage && (
                               <button onClick={() => handleDeleteTask(task.id)} className="text-xs text-red-600 hover:underline px-1">Delete</button>
                             )}
+                            {(task.extendReason || task.lastExtReason || task.completedRemarks) && (
+                              <button onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)} className="text-xs text-blue-600 hover:underline px-1">
+                                {expandedTaskId === task.id ? "Hide" : "Details"}
+                              </button>
+                            )}
                           </div>
                           {reassigningId === task.id && (
                             <div className="mt-2 flex gap-2">
@@ -264,6 +282,15 @@ export default function AdminPage() {
                               </select>
                               <button onClick={() => handleReassign(task.id)} className="text-xs bg-indigo-600 text-white px-2 py-1 rounded">Go</button>
                               <button onClick={() => setReassigningId(null)} className="text-xs text-gray-500">Cancel</button>
+                            </div>
+                          )}
+                          {expandedTaskId === task.id && (
+                            <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-900 rounded text-xs space-y-1">
+                              {task.extendReason && <p className="text-orange-600 dark:text-orange-400"><span className="font-medium">Extension Reason:</span> {task.extendReason}</p>}
+                              {task.lastExtReason && <p className="text-gray-600 dark:text-gray-400"><span className="font-medium">Last Ext Reason:</span> {task.lastExtReason}</p>}
+                              {task.completedRemarks && <p className="text-green-600 dark:text-green-400"><span className="font-medium">Completed Remarks:</span> {task.completedRemarks}</p>}
+                              {task.pendingReason && <p className="text-yellow-600 dark:text-yellow-400"><span className="font-medium">Pending Reason:</span> {task.pendingReason}</p>}
+                              {task.rejectReason && <p className="text-red-600 dark:text-red-400"><span className="font-medium">Reject Reason:</span> {task.rejectReason}</p>}
                             </div>
                           )}
                         </td>

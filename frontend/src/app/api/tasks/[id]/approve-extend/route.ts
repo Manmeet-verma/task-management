@@ -33,16 +33,20 @@ export async function POST(
       return NextResponse.json({ error: "No pending extension request" }, { status: 400 });
 
     const newCount = (task.extensionCount || 0) + 1;
+    const extReason = task.extendReason || "";
+    const extDeadline = task.extendDeadline;
+
     await update(taskRef, {
-      deadline: task.extendDeadline,
+      deadline: extDeadline,
       extensionCount: newCount,
       extendStatus: "APPROVED",
+      lastExtReason: extReason,
       extendDeadline: null,
       extendReason: null,
       updatedAt: new Date().toISOString(),
     });
     if (task.assignedToId) {
-      await createNotification(task.assignedToId, `Your deadline extension for "${task.name}" has been approved. New deadline: ${task.extendDeadline}`, "EXTEND_APPROVED", id);
+      await createNotification(task.assignedToId, `Your deadline extension for "${task.name}" has been approved. New deadline: ${extDeadline}`, "EXTEND_APPROVED", id);
     }
 
     const updated = (await get(taskRef)).val();

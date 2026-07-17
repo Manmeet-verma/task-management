@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { db, ref, get, set, push } from "@/lib/firebase";
+import crypto from "crypto";
 
 export async function POST(request: Request) {
   try {
@@ -25,6 +26,7 @@ export async function POST(request: Request) {
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUserRef = push(ref(db, "users"));
     const userId = newUserRef.key!;
+    const sessionId = crypto.randomUUID();
 
     const user = {
       id: userId,
@@ -32,6 +34,7 @@ export async function POST(request: Request) {
       email,
       password: hashedPassword,
       role: "USER",
+      sessionId,
       createdAt: new Date().toISOString(),
     };
 
@@ -40,7 +43,7 @@ export async function POST(request: Request) {
     await set(usernameRef, { userId, username });
 
     const token = jwt.sign(
-      { id: userId, username, role: "USER" },
+      { id: userId, username, role: "USER", sessionId },
       process.env.JWT_SECRET!,
       { expiresIn: "7d" }
     );

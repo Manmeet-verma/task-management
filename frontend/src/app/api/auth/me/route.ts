@@ -17,6 +17,11 @@ export async function GET(request: Request) {
     }
 
     const userData = snapshot.val();
+
+    if (user.sessionId && userData.sessionId && user.sessionId !== userData.sessionId) {
+      return NextResponse.json({ error: "Session expired. Logged in from another device." }, { status: 401 });
+    }
+
     return NextResponse.json({
       id: userData.id,
       username: userData.username,

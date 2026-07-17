@@ -61,8 +61,8 @@ export const api = {
       request<Task>(`/tasks/${id}/reject`, { method: "POST", body: { reason } }),
     pending: (id: string, reason: string) =>
       request<Task>(`/tasks/${id}/pending`, { method: "POST", body: { reason } }),
-    complete: (id: string) =>
-      request<Task>(`/tasks/${id}/complete`, { method: "POST" }),
+    complete: (id: string, remarks: string) =>
+      request<Task>(`/tasks/${id}/complete`, { method: "POST", body: { remarks } }),
     approveComplete: (id: string) =>
       request<Task>(`/tasks/${id}/approve-complete`, { method: "POST" }),
     extendDate: (id: string, newDeadline: string, reason?: string) =>
@@ -134,6 +134,9 @@ export interface Task {
   extendDeadline?: string;
   extendReason?: string;
   extendStatus?: string;
+  lastExtReason?: string;
+  completedRemarks?: string;
+  completedAt?: string;
   locked?: boolean;
   createdAt: string;
   updatedAt: string;
