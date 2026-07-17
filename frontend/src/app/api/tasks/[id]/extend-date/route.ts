@@ -24,17 +24,24 @@ export async function POST(
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { id } = await params;
+    const body = await request.json();
+    const { newDeadline, reason } = body;
+
     const taskRef = ref(db, `tasks/${id}`);
     const snapshot = await get(taskRef);
     if (!snapshot.exists()) return NextResponse.json({ error: "Task not found" }, { status: 404 });
     const task = snapshot.val();
     if (task.assignedToId !== user.id) return NextResponse.json({ error: "Not your task" }, { status: 403 });
     if (task.locked) return NextResponse.json({ error: "Task is locked" }, { status: 400 });
-    if (task.status !== "IN_PROGRESS" && task.status !== "ASSIGNED")
-      return NextResponse.json({ error: "Task cannot be completed" }, { status: 400 });
+    if (!newDeadline) return NextResponse.json({ error: "New deadline is required" }, { status: 400 });
 
-    await update(taskRef, { status: "COMPLETED", updatedAt: new Date().toISOString() });
-    await createNotification(task.createdById, `${user.username} completed "${task.name}". Please verify.`, "COMPLETED", id);
+    await update(taskRef, {
+      extendDeadline: newDeadline,
+      extendReason: reason || "",
+      extendStatus: "PENDING",
+      updatedAt: new Date().toISOString(),
+    });
+    await createNotification(task.createdById, `${user.username} requested deadline extension for "${task.name}" to ${newDeadline}${reason ? `: ${reason}` : ""}`, "EXTEND_REQUEST", id);
 
     const updated = (await get(taskRef)).val();
     return NextResponse.json(updated);

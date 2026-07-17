@@ -22,19 +22,25 @@ export async function POST(
   try {
     const user = verifyAuth(request);
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (user.role !== "ADMIN") return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 
     const { id } = await params;
     const taskRef = ref(db, `tasks/${id}`);
     const snapshot = await get(taskRef);
     if (!snapshot.exists()) return NextResponse.json({ error: "Task not found" }, { status: 404 });
     const task = snapshot.val();
-    if (task.assignedToId !== user.id) return NextResponse.json({ error: "Not your task" }, { status: 403 });
-    if (task.locked) return NextResponse.json({ error: "Task is locked" }, { status: 400 });
-    if (task.status !== "IN_PROGRESS" && task.status !== "ASSIGNED")
-      return NextResponse.json({ error: "Task cannot be completed" }, { status: 400 });
+    if (task.extendStatus !== "PENDING")
+      return NextResponse.json({ error: "No pending extension request" }, { status: 400 });
 
-    await update(taskRef, { status: "COMPLETED", updatedAt: new Date().toISOString() });
-    await createNotification(task.createdById, `${user.username} completed "${task.name}". Please verify.`, "COMPLETED", id);
+    await update(taskRef, {
+      extendStatus: "REJECTED",
+      extendDeadline: null,
+      extendReason: null,
+      updatedAt: new Date().toISOString(),
+    });
+    if (task.assignedToId) {
+      await createNotification(task.assignedToId, `Your deadline extension request for "${task.name}" has been rejected.`, "EXTEND_REJECTED", id);
+    }
 
     const updated = (await get(taskRef)).val();
     return NextResponse.json(updated);

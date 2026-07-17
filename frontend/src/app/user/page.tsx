@@ -5,152 +5,104 @@ import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import { api, type Task } from "@/lib/api";
 import Navbar from "@/components/Navbar";
-import TaskCard from "@/components/TaskCard";
+import StatusBadge from "@/components/StatusBadge";
+import Link from "next/link";
 
 export default function UserPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [availableTasks, setAvailableTasks] = useState<Task[]>([]);
   const [myTasks, setMyTasks] = useState<Task[]>([]);
-  const [tab, setTab] = useState<"available" | "mine">("available");
   const [loadingData, setLoadingData] = useState(true);
-  const [claimingTaskId, setClaimingTaskId] = useState<string | null>(null);
-  const [deadline, setDeadline] = useState("");
 
   useEffect(() => {
-    if (!loading && (!user || user.role !== "USER")) {
-      router.replace("/login");
-    }
+    if (!loading && (!user || user.role !== "USER")) router.replace("/login");
   }, [user, loading, router]);
 
   useEffect(() => {
-    if (user?.role === "USER") {
-      loadData();
-    }
+    if (user?.role === "USER") loadData();
   }, [user]);
 
   const loadData = async () => {
     setLoadingData(true);
     try {
-      const [a, m] = await Promise.all([
-        api.tasks.getAvailable(),
-        api.tasks.getMine(),
-      ]);
-      setAvailableTasks(a);
-      setMyTasks(m);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoadingData(false);
-    }
+      const t = await api.tasks.getMine();
+      setMyTasks(t);
+    } catch (err) { console.error(err); }
+    finally { setLoadingData(false); }
   };
 
-  const handleClaim = async (id: string) => {
-    if (!deadline) {
-      alert("Please select your deadline first");
-      return;
-    }
-    try {
-      setClaimingTaskId(id);
-      await api.tasks.claim(id, deadline);
-      setDeadline("");
-      setClaimingTaskId(null);
-      loadData();
-    } catch (err) {
-      console.error(err);
-      setClaimingTaskId(null);
-    }
+  const getStatusColor = (task: Task) => {
+    if (task.status === "LOCKED") return "bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-600";
+    if (task.status === "COMPLETED") return "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800";
+    if (task.status === "PENDING") return "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800";
+    if (task.status === "REJECTED") return "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800";
+    if ((task.extensionCount || 0) > 1) return "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800";
+    return "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800";
   };
 
   if (loading || !user) return null;
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen dark:bg-gray-900">
       <Navbar />
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-6">My Dashboard</h1>
-
-        <div className="flex gap-4 mb-6 border-b border-gray-200">
-          <button
-            onClick={() => setTab("available")}
-            className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
-              tab === "available"
-                ? "border-indigo-600 text-indigo-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            Available Tasks ({availableTasks.length})
-          </button>
-          <button
-            onClick={() => setTab("mine")}
-            className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
-              tab === "mine"
-                ? "border-indigo-600 text-indigo-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            My Tasks ({myTasks.length})
-          </button>
-        </div>
-
+        <h1 className="text-2xl font-bold mb-6 dark:text-white">My Tasks ({myTasks.length})</h1>
         {loadingData ? (
-          <div className="text-center py-12 text-gray-500">Loading...</div>
-        ) : tab === "available" ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {availableTasks.map((task) => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                action={
-                  <div className="space-y-2">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
-                        Set Your Deadline
-                      </label>
-                      <input
-                        type="date"
-                        value={claimingTaskId === task.id ? deadline : ""}
-                        onChange={(e) => {
-                          setClaimingTaskId(task.id);
-                          setDeadline(e.target.value);
-                        }}
-                        className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handleClaim(task.id);
-                      }}
-                      disabled={claimingTaskId === task.id && !deadline}
-                      className="w-full bg-indigo-600 text-white px-3 py-1.5 rounded-md text-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {claimingTaskId === task.id ? "Claiming..." : "Select & Claim"}
-                    </button>
-                  </div>
-                }
-              />
-            ))}
-            {availableTasks.length === 0 && (
-              <p className="text-gray-500 col-span-full text-center py-8">
-                No available tasks.
-              </p>
-            )}
-          </div>
+          <div className="text-center py-12 text-gray-500 dark:text-gray-400">Loading...</div>
+        ) : myTasks.length === 0 ? (
+          <p className="text-gray-500 dark:text-gray-400 text-center py-8">No tasks assigned to you.</p>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {myTasks.map((task) => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                href={`/user/tasks/${task.id}`}
-              />
-            ))}
-            {myTasks.length === 0 && (
-              <p className="text-gray-500 col-span-full text-center py-8">
-                You haven&apos;t claimed any tasks yet.
-              </p>
-            )}
+            {myTasks.map((task) => {
+              const canAct = !task.locked && task.status !== "COMPLETED" && task.status !== "LOCKED" && task.status !== "REJECTED";
+              const isWaiting = task.status === "ASSIGNED" || task.status === "PENDING" || task.status === "COMPLETED";
+              return (
+                <div key={task.id} className={`rounded-lg border p-5 ${getStatusColor(task)} ${task.extensionCount > 1 ? "border-red-400 dark:border-red-600" : ""}`}>
+                  <div className="flex items-start justify-between mb-3">
+                    <h3 className="font-semibold dark:text-white">{task.name}</h3>
+                    <StatusBadge status={task.status} />
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1 mb-4">
+                    <p>Category: {task.category}</p>
+                    <p>Site: {task.siteProject}</p>
+                    <p>Deadline: {new Date(task.deadline).toLocaleDateString()}</p>
+                    {task.userDeadline && <p>Your Deadline: {new Date(task.userDeadline).toLocaleDateString()}</p>}
+                    {task.extensionCount > 0 && <p className="text-red-600 dark:text-red-400">Extensions: {task.extensionCount}</p>}
+                  </div>
+
+                  {task.status === "REJECTED" && task.rejectReason && (
+                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-2 mb-3">
+                      <p className="text-xs font-medium text-red-700 dark:text-red-300">Rejection Reason:</p>
+                      <p className="text-xs text-red-600 dark:text-red-400">{task.rejectReason}</p>
+                    </div>
+                  )}
+
+                  {task.status === "PENDING" && (
+                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded p-2 mb-3">
+                      <p className="text-xs text-yellow-700 dark:text-yellow-300">Waiting for admin review...</p>
+                    </div>
+                  )}
+
+                  {task.status === "COMPLETED" && !task.locked && (
+                    <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded p-2 mb-3">
+                      <p className="text-xs text-green-700 dark:text-green-300">Completed. Waiting for admin to verify...</p>
+                    </div>
+                  )}
+
+                  {task.locked && (
+                    <div className="bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded p-2 mb-3">
+                      <p className="text-xs text-gray-600 dark:text-gray-400">This task is locked. No changes allowed.</p>
+                    </div>
+                  )}
+
+                  {canAct && (
+                    <Link href={`/user/tasks/${task.id}`} className="block w-full text-center bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm font-medium">
+                      Open Task
+                    </Link>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

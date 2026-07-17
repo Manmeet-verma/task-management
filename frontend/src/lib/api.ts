@@ -45,52 +45,52 @@ export const api = {
     getAvailable: () => request<Task[]>("/tasks/available"),
     getMine: () => request<Task[]>("/tasks/mine"),
     getPending: () => request<Task[]>("/tasks/pending"),
+    getClaimed: () => request<Task[]>("/tasks/claimed"),
     getById: (id: string) => request<Task>(`/tasks/${id}`),
     create: (data: CreateTaskPayload) =>
       request<Task>("/tasks", { method: "POST", body: data }),
-    update: (id: string, data: Partial<CreateTaskPayload & { status: string }>) =>
+    update: (id: string, data: Partial<CreateTaskPayload & { status: string; assignedToId: string }>) =>
       request<Task>(`/tasks/${id}`, { method: "PUT", body: data }),
     delete: (id: string) =>
       request<{ message: string }>(`/tasks/${id}`, { method: "DELETE" }),
     claim: (id: string, userDeadline?: string) =>
-      request<Task>(`/tasks/${id}/claim`, {
-        method: "POST",
-        body: { userDeadline },
-      }),
+      request<Task>(`/tasks/${id}/claim`, { method: "POST", body: { userDeadline } }),
     accept: (id: string) =>
       request<Task>(`/tasks/${id}/accept`, { method: "POST" }),
     reject: (id: string, reason: string) =>
-      request<Task>(`/tasks/${id}/reject`, {
-        method: "POST",
-        body: { reason },
-      }),
-    getClaimed: () => request<Task[]>("/tasks/claimed"),
+      request<Task>(`/tasks/${id}/reject`, { method: "POST", body: { reason } }),
+    pending: (id: string, reason: string) =>
+      request<Task>(`/tasks/${id}/pending`, { method: "POST", body: { reason } }),
     complete: (id: string) =>
       request<Task>(`/tasks/${id}/complete`, { method: "POST" }),
-    pendingResubmit: (id: string, pendingReason: string) =>
-      request<Task>(`/tasks/${id}/pending-resubmit`, {
-        method: "POST",
-        body: { pendingReason },
-      }),
+    approveComplete: (id: string) =>
+      request<Task>(`/tasks/${id}/approve-complete`, { method: "POST" }),
+    extendDate: (id: string, newDeadline: string, reason?: string) =>
+      request<Task>(`/tasks/${id}/extend-date`, { method: "POST", body: { newDeadline, reason } }),
+    approveExtend: (id: string) =>
+      request<Task>(`/tasks/${id}/approve-extend`, { method: "POST" }),
+    rejectExtend: (id: string) =>
+      request<Task>(`/tasks/${id}/reject-extend`, { method: "POST" }),
+    lock: (id: string) =>
+      request<Task>(`/tasks/${id}/lock`, { method: "POST" }),
+    reassign: (id: string, assignedToId: string) =>
+      request<Task>(`/tasks/${id}/reassign`, { method: "POST", body: { assignedToId } }),
+    getStats: () => request<DashboardStats>("/tasks/stats"),
   },
   submissions: {
     getAll: () => request<Submission[]>("/submissions"),
-    getByTask: (taskId: string) =>
-      request<Submission[]>(`/submissions/${taskId}`),
+    getByTask: (taskId: string) => request<Submission[]>(`/submissions/${taskId}`),
     submit: (taskId: string, formData: FormData) =>
-      request<Submission>(`/submissions/${taskId}/submit`, {
-        method: "POST",
-        body: formData,
-      }),
-    review: (
-      id: string,
-      action: "accept" | "reject",
-      adminComments?: string
-    ) =>
-      request<{ message: string }>(`/submissions/${id}/review`, {
-        method: "PUT",
-        body: { action, adminComments },
-      }),
+      request<Submission>(`/submissions/${taskId}/submit`, { method: "POST", body: formData }),
+    review: (id: string, action: "accept" | "reject", adminComments?: string) =>
+      request<{ message: string }>(`/submissions/${id}/review`, { method: "PUT", body: { action, adminComments } }),
+  },
+  notifications: {
+    getMine: () => request<Notification[]>("/notifications"),
+    markRead: (id: string) =>
+      request<{ message: string }>(`/notifications/${id}/read`, { method: "PUT" }),
+    markAllRead: () =>
+      request<{ message: string }>("/notifications/read-all", { method: "PUT" }),
   },
   admin: {
     getUsers: () => request<User[]>("/admin/users"),
@@ -120,7 +120,13 @@ export interface Task {
   priority: string;
   description: string;
   status: string;
+  extensionCount: number;
+  pendingReason?: string;
   rejectReason?: string;
+  extendDeadline?: string;
+  extendReason?: string;
+  extendStatus?: string;
+  locked?: boolean;
   createdAt: string;
   updatedAt: string;
   createdById: string;
@@ -152,4 +158,24 @@ export interface CreateTaskPayload {
   deadline: string;
   priority: string;
   description: string;
+  assignedToId?: string;
+}
+
+export interface DashboardStats {
+  totalTasks: number;
+  completedTasks: number;
+  pendingTasks: number;
+  inProgressTasks: number;
+  extensionRequests: number;
+  overdueTasks: number;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  message: string;
+  type: string;
+  taskId?: string;
+  read: boolean;
+  createdAt: string;
 }

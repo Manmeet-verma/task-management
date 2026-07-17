@@ -62,6 +62,9 @@ export async function PUT(
     const taskRef = ref(db, `tasks/${id}`);
     const snapshot = await get(taskRef);
     if (!snapshot.exists()) return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    const taskData = snapshot.val();
+    if (taskData.locked && user.role !== "ADMIN")
+      return NextResponse.json({ error: "Task is locked" }, { status: 400 });
 
     const body = await request.json();
     const updates: Record<string, any> = { updatedAt: new Date().toISOString() };
