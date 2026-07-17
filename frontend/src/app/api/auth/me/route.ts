@@ -22,6 +22,7 @@ export async function GET(request: Request) {
       username: userData.username,
       email: userData.email,
       role: userData.role,
+      isMaster: userData.isMaster || false,
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

@@ -33,8 +33,16 @@ export async function POST(
     if (task.status !== "IN_PROGRESS" && task.status !== "ASSIGNED")
       return NextResponse.json({ error: "Task cannot be completed" }, { status: 400 });
 
+    const adminSnapshot = await get(ref(db, `users/${task.createdById}`));
+    const adminName = adminSnapshot.exists() ? adminSnapshot.val().username : "Admin";
+
     await update(taskRef, { status: "COMPLETED", updatedAt: new Date().toISOString() });
-    await createNotification(task.createdById, `${user.username} completed "${task.name}". Please verify.`, "COMPLETED", id);
+    await createNotification(
+      task.createdById,
+      `${user.username} has completed the job "${task.name}" but needs intention of ${adminName}. Please verify.`,
+      "COMPLETED",
+      id
+    );
 
     const updated = (await get(taskRef)).val();
     return NextResponse.json(updated);

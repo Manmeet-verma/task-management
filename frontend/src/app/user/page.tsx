@@ -86,6 +86,7 @@ export default function UserPage() {
                   {task.status === "COMPLETED" && !task.locked && (
                     <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded p-2 mb-3">
                       <p className="text-xs text-green-700 dark:text-green-300">Completed. Waiting for admin to verify...</p>
+                      <p className="text-xs text-green-600 dark:text-green-400 mt-1 italic">&quot;{user.username} has completed the job but needs intention of {task.createdBy?.username || "Admin"}&quot;</p>
                     </div>
                   )}
 

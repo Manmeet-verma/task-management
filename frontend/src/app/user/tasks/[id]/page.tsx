@@ -118,6 +118,7 @@ export default function TaskDetailPage() {
           <div className="bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800 p-6 mb-6">
             <h2 className="text-lg font-semibold text-green-800 dark:text-green-300">Completed</h2>
             <p className="text-sm text-green-700 dark:text-green-400">Waiting for admin to verify and lock this task.</p>
+            <p className="text-sm text-green-600 dark:text-green-400 mt-1 italic">&quot;{user.username} has completed the job but needs intention of {task.createdBy?.username || "Admin"}&quot;</p>
           </div>
         )}
 

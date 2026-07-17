@@ -33,9 +33,16 @@ export async function POST(
     if (!snapshot.exists()) return NextResponse.json({ error: "Task not found" }, { status: 404 });
     const task = snapshot.val();
 
+    const userSnapshot = await get(ref(db, `users/${user.id}`));
+    const userData = userSnapshot.exists() ? userSnapshot.val() : null;
+    const isMaster = userData?.isMaster === true;
+
+    if (task.createdById !== user.id && !isMaster) {
+      return NextResponse.json({ error: "Only the admin who assigned this task can reassign it" }, { status: 403 });
+    }
+
     const usersSnapshot = await get(ref(db, `users/${assignedToId}`));
     if (!usersSnapshot.exists()) return NextResponse.json({ error: "User not found" }, { status: 404 });
-    const assignee = usersSnapshot.val();
 
     const oldAssignedId = task.assignedToId;
     await update(taskRef, {
@@ -47,6 +54,7 @@ export async function POST(
 
     await createNotification(assignedToId, `You have been assigned "${task.name}" by admin.`, "ASSIGNED", id);
     if (oldAssignedId && oldAssignedId !== assignedToId) {
+      const assignee = usersSnapshot.val();
       await createNotification(oldAssignedId, `"${task.name}" has been reassigned to ${assignee.username}.`, "REASSIGNED", id);
     }
 

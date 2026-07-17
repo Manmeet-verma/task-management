@@ -30,6 +30,14 @@ export async function POST(
     if (!snapshot.exists()) return NextResponse.json({ error: "Task not found" }, { status: 404 });
     const task = snapshot.val();
 
+    const userSnapshot = await get(ref(db, `users/${user.id}`));
+    const userData = userSnapshot.exists() ? userSnapshot.val() : null;
+    const isMaster = userData?.isMaster === true;
+
+    if (task.createdById !== user.id && !isMaster) {
+      return NextResponse.json({ error: "Only the admin who assigned this task can lock it" }, { status: 403 });
+    }
+
     await update(taskRef, { locked: true, updatedAt: new Date().toISOString() });
     if (task.assignedToId) {
       await createNotification(task.assignedToId, `Admin has locked "${task.name}". No further changes allowed.`, "LOCKED", id);

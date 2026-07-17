@@ -37,7 +37,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       token,
-      user: { id: user.id, username: user.username, email: user.email, role: user.role },
+      user: { id: user.id, username: user.username, email: user.email, role: user.role, isMaster: user.isMaster || false },
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

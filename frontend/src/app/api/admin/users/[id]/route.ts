@@ -23,6 +23,7 @@ export async function PUT(
     if (body.username) updates.username = body.username;
     if (body.email) updates.email = body.email;
     if (body.role) updates.role = body.role;
+    if (body.isMaster !== undefined) updates.isMaster = body.isMaster;
     if (body.password) updates.password = await bcrypt.hash(body.password, 10);
 
     await update(userRef, updates);
@@ -33,6 +34,7 @@ export async function PUT(
       username: updated.username,
       email: updated.email,
       role: updated.role,
+      isMaster: updated.isMaster || false,
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

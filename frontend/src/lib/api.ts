@@ -94,9 +94,9 @@ export const api = {
   },
   admin: {
     getUsers: () => request<User[]>("/admin/users"),
-    createUser: (data: { username: string; email: string; password: string; role: string }) =>
+    createUser: (data: { username: string; email: string; password: string; role: string; isMaster?: boolean }) =>
       request<User>("/admin/users", { method: "POST", body: data }),
-    updateUser: (id: string, data: Partial<{ username: string; email: string; password: string; role: string }>) =>
+    updateUser: (id: string, data: Partial<{ username: string; email: string; password: string; role: string; isMaster: boolean }>) =>
       request<User>(`/admin/users/${id}`, { method: "PUT", body: data }),
     deleteUser: (id: string) =>
       request<{ message: string }>(`/admin/users/${id}`, { method: "DELETE" }),
@@ -115,6 +115,7 @@ export interface User {
   username: string;
   email: string;
   role: "ADMIN" | "USER";
+  isMaster?: boolean;
 }
 
 export interface Task {

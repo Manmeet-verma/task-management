@@ -26,7 +26,7 @@ export default function AdminPage() {
 
   const [showUserForm, setShowUserForm] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [userForm, setUserForm] = useState({ username: "", email: "", password: "", role: "USER" });
+  const [userForm, setUserForm] = useState({ username: "", email: "", password: "", role: "USER", isMaster: false });
   const [newCategory, setNewCategory] = useState("");
 
   useEffect(() => {
@@ -51,9 +51,15 @@ export default function AdminPage() {
     finally { setLoadingData(false); }
   };
 
+  const canLockReassignDelete = (task: Task) => {
+    if (!user) return false;
+    if (user.isMaster) return true;
+    return task.createdById === user.id;
+  };
+
   const handleDeleteTask = async (id: string) => {
     if (!confirm("Delete this task?")) return;
-    try { await api.tasks.delete(id); loadData(); } catch (err) { console.error(err); }
+    try { await api.tasks.delete(id); loadData(); } catch (err: any) { alert(err.message || "Failed"); }
   };
 
   const handleApproveComplete = async (id: string) => {
@@ -70,30 +76,31 @@ export default function AdminPage() {
 
   const handleLock = async (id: string) => {
     if (!confirm("Lock this task?")) return;
-    try { await api.tasks.lock(id); loadData(); } catch (err) { console.error(err); }
+    try { await api.tasks.lock(id); loadData(); } catch (err: any) { alert(err.message || "Failed"); }
   };
 
   const handleReassign = async (id: string) => {
     if (!reassignUserId) return;
-    try { await api.tasks.reassign(id, reassignUserId); setReassigningId(null); setReassignUserId(""); loadData(); } catch (err) { console.error(err); }
+    try { await api.tasks.reassign(id, reassignUserId); setReassigningId(null); setReassignUserId(""); loadData(); } catch (err: any) { alert(err.message || "Failed"); }
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (editingUser) {
-        const updateData: Record<string, string> = {};
+        const updateData: Record<string, any> = {};
         if (userForm.username) updateData.username = userForm.username;
         if (userForm.email) updateData.email = userForm.email;
         if (userForm.password) updateData.password = userForm.password;
         updateData.role = userForm.role;
+        updateData.isMaster = userForm.isMaster;
         await api.admin.updateUser(editingUser.id, updateData);
       } else {
-        await api.admin.createUser(userForm);
+        await api.admin.createUser({ ...userForm, isMaster: userForm.isMaster });
       }
       setShowUserForm(false);
       setEditingUser(null);
-      setUserForm({ username: "", email: "", password: "", role: "USER" });
+      setUserForm({ username: "", email: "", password: "", role: "USER", isMaster: false });
       loadData();
     } catch (err) { alert(err instanceof Error ? err.message : "Failed"); }
   };
@@ -131,7 +138,7 @@ export default function AdminPage() {
           <h1 className="text-2xl font-bold dark:text-white">Admin Dashboard</h1>
           <div className="flex gap-2">
             {tab === "users" ? (
-              <button onClick={() => { setEditingUser(null); setUserForm({ username: "", email: "", password: "", role: "USER" }); setShowUserForm(true); }} className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">+ New User</button>
+              <button onClick={() => { setEditingUser(null); setUserForm({ username: "", email: "", password: "", role: "USER", isMaster: false }); setShowUserForm(true); }} className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">+ New User</button>
             ) : tab === "categories" ? null : (
               <Link href="/admin/tasks/new" className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">+ New Task</Link>
             )}
@@ -174,6 +181,12 @@ export default function AdminPage() {
                     <option value="ADMIN">Admin</option>
                   </select>
                 </div>
+                {userForm.role === "ADMIN" && (
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" id="isMaster" checked={userForm.isMaster} onChange={(e) => setUserForm({ ...userForm, isMaster: e.target.checked })} className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                    <label htmlFor="isMaster" className="text-sm font-medium text-gray-700 dark:text-gray-300">Master Admin (can manage all tasks)</label>
+                  </div>
+                )}
               </div>
               <div className="flex gap-2">
                 <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">{editingUser ? "Update User" : "Create User"}</button>
@@ -208,46 +221,55 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginated.map((task) => (
-                    <tr key={task.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                      <td className="px-4 py-3 font-medium dark:text-white">{task.name}</td>
-                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{task.category}</td>
-                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{task.siteProject}</td>
-                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{task.assignedTo?.username || "-"}</td>
-                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{new Date(task.deadline).toLocaleDateString()}</td>
-                      <td className="px-4 py-3"><StatusBadge status={task.status} /></td>
-                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-center">{task.extensionCount || 0}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-1 flex-wrap">
-                          <Link href={`/admin/tasks/${task.id}/edit`} className="text-xs text-indigo-600 hover:underline px-1">Edit</Link>
-                          {task.status === "COMPLETED" && !task.locked && (
-                            <button onClick={() => handleApproveComplete(task.id)} className="text-xs text-green-600 hover:underline px-1">Verify</button>
-                          )}
-                          {task.extendStatus === "PENDING" && (
-                            <>
-                              <button onClick={() => handleApproveExtend(task.id)} className="text-xs text-green-600 hover:underline px-1">Accept Ext</button>
-                              <button onClick={() => handleRejectExtend(task.id)} className="text-xs text-red-600 hover:underline px-1">Reject Ext</button>
-                            </>
-                          )}
-                          {!task.locked && <button onClick={() => handleLock(task.id)} className="text-xs text-gray-600 hover:underline px-1">Lock</button>}
-                          <button onClick={() => { setReassigningId(task.id); setReassignUserId(""); }} className="text-xs text-orange-600 hover:underline px-1">Reassign</button>
-                          <button onClick={() => handleDeleteTask(task.id)} className="text-xs text-red-600 hover:underline px-1">Delete</button>
-                        </div>
-                        {reassigningId === task.id && (
-                          <div className="mt-2 flex gap-2">
-                            <select value={reassignUserId} onChange={(e) => setReassignUserId(e.target.value)} className="text-xs border rounded px-2 py-1 dark:bg-gray-700 dark:text-white dark:border-gray-600">
-                              <option value="">Select user</option>
-                              {users.filter((u) => u.role === "USER").map((u) => (
-                                <option key={u.id} value={u.id}>{u.username}</option>
-                              ))}
-                            </select>
-                            <button onClick={() => handleReassign(task.id)} className="text-xs bg-indigo-600 text-white px-2 py-1 rounded">Go</button>
-                            <button onClick={() => setReassigningId(null)} className="text-xs text-gray-500">Cancel</button>
+                  {paginated.map((task) => {
+                    const canManage = canLockReassignDelete(task);
+                    return (
+                      <tr key={task.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <td className="px-4 py-3 font-medium dark:text-white">{task.name}</td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{task.category}</td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{task.siteProject}</td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{task.assignedTo?.username || "-"}</td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{new Date(task.deadline).toLocaleDateString()}</td>
+                        <td className="px-4 py-3"><StatusBadge status={task.status} /></td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-center">{task.extensionCount || 0}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex gap-1 flex-wrap">
+                            <Link href={`/admin/tasks/${task.id}/edit`} className="text-xs text-indigo-600 hover:underline px-1">Edit</Link>
+                            {task.status === "COMPLETED" && !task.locked && (
+                              <button onClick={() => handleApproveComplete(task.id)} className="text-xs text-green-600 hover:underline px-1">Verify</button>
+                            )}
+                            {task.extendStatus === "PENDING" && (
+                              <>
+                                <button onClick={() => handleApproveExtend(task.id)} className="text-xs text-green-600 hover:underline px-1">Accept Ext</button>
+                                <button onClick={() => handleRejectExtend(task.id)} className="text-xs text-red-600 hover:underline px-1">Reject Ext</button>
+                              </>
+                            )}
+                            {canManage && !task.locked && (
+                              <button onClick={() => handleLock(task.id)} className="text-xs text-gray-600 hover:underline px-1">Lock</button>
+                            )}
+                            {canManage && (
+                              <button onClick={() => { setReassigningId(task.id); setReassignUserId(""); }} className="text-xs text-orange-600 hover:underline px-1">Reassign</button>
+                            )}
+                            {canManage && (
+                              <button onClick={() => handleDeleteTask(task.id)} className="text-xs text-red-600 hover:underline px-1">Delete</button>
+                            )}
                           </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                          {reassigningId === task.id && (
+                            <div className="mt-2 flex gap-2">
+                              <select value={reassignUserId} onChange={(e) => setReassignUserId(e.target.value)} className="text-xs border rounded px-2 py-1 dark:bg-gray-700 dark:text-white dark:border-gray-600">
+                                <option value="">Select user</option>
+                                {users.map((u) => (
+                                  <option key={u.id} value={u.id}>{u.username} ({u.role})</option>
+                                ))}
+                              </select>
+                              <button onClick={() => handleReassign(task.id)} className="text-xs bg-indigo-600 text-white px-2 py-1 rounded">Go</button>
+                              <button onClick={() => setReassigningId(null)} className="text-xs text-gray-500">Cancel</button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {paginated.length === 0 && <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No tasks found</td></tr>}
                 </tbody>
               </table>
@@ -265,12 +287,12 @@ export default function AdminPage() {
             {users.map((u) => (
               <div key={u.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center justify-between">
                 <div>
-                  <p className="font-medium dark:text-white">{u.username}</p>
+                  <p className="font-medium dark:text-white">{u.username} {u.isMaster && <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 px-2 py-0.5 rounded-full ml-1">Master</span>}</p>
                   <p className="text-sm text-gray-500 dark:text-gray-400">{u.email}</p>
                   <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full ${u.role === "ADMIN" ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300" : "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300"}`}>{u.role}</span>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => { setEditingUser(u); setUserForm({ username: u.username, email: u.email, password: "", role: u.role }); setShowUserForm(true); }} className="text-sm text-indigo-600 hover:text-indigo-800">Edit</button>
+                  <button onClick={() => { setEditingUser(u); setUserForm({ username: u.username, email: u.email, password: "", role: u.role, isMaster: u.isMaster || false }); setShowUserForm(true); }} className="text-sm text-indigo-600 hover:text-indigo-800">Edit</button>
                   <button onClick={() => handleDeleteUser(u.id)} className="text-sm text-red-600 hover:text-red-800">Delete</button>
                 </div>
               </div>

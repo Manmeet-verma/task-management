@@ -20,6 +20,7 @@ export async function GET(request: Request) {
       username: u.username,
       email: u.email,
       role: u.role,
+      isMaster: u.isMaster || false,
       createdAt: u.createdAt,
     }));
 
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     if (user.role !== "ADMIN") return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 
-    const { username, email, password, role } = await request.json();
+    const { username, email, password, role, isMaster } = await request.json();
 
     if (!username || !email || !password) {
       return NextResponse.json({ error: "All fields are required" }, { status: 400 });
@@ -64,6 +65,7 @@ export async function POST(request: Request) {
       email,
       password: hashedPassword,
       role: role === "ADMIN" ? "ADMIN" : "USER",
+      isMaster: isMaster || false,
       createdAt: new Date().toISOString(),
     };
 
