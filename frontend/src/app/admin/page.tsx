@@ -30,6 +30,7 @@ export default function AdminPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [userForm, setUserForm] = useState({ username: "", email: "", password: "", role: "USER", isMaster: false });
   const [newCategory, setNewCategory] = useState("");
+  const [newSite, setNewSite] = useState("");
 
   useEffect(() => {
     if (!loading && (!user || user.role !== "ADMIN")) router.replace("/login");
@@ -121,6 +122,16 @@ export default function AdminPage() {
   const handleDeleteCategory = async (id: string) => {
     if (!confirm("Delete this category?")) return;
     try { await api.categories.delete(id); loadData(); } catch (err) { console.error(err); }
+  };
+
+  const handleAddSite = async () => {
+    if (!newSite.trim()) return;
+    try { await api.sites.create({ name: newSite }); setNewSite(""); loadData(); } catch (err: unknown) { alert(err instanceof Error ? err.message : "Failed"); }
+  };
+
+  const handleDeleteSite = async (id: string) => {
+    if (!confirm("Delete this site?")) return;
+    try { await api.sites.delete(id); loadData(); } catch (err) { console.error(err); }
   };
 
   const activeTasks = tasks.filter((t) => t.status !== "LOCKED");
@@ -334,21 +345,22 @@ export default function AdminPage() {
             {users.length === 0 && <p className="text-gray-500 dark:text-gray-400 text-center py-8">No users yet.</p>}
           </div>
         ) : tab === "sites" ? (
-          <div className="text-center py-8">
-            <Link href="/admin/sites" className="bg-indigo-600 text-white px-6 py-3 rounded-md hover:bg-indigo-700 inline-block">
-              Go to Sites Management
-            </Link>
-            <div className="mt-6 space-y-2">
+          <div>
+            <div className="flex gap-2 mb-6">
+              <input type="text" value={newSite} onChange={(e) => setNewSite(e.target.value)} placeholder="New site name..." className="flex-1 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" onKeyDown={(e) => e.key === "Enter" && handleAddSite()} />
+              <button onClick={handleAddSite} className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">Add Site</button>
+            </div>
+            <div className="space-y-2">
               {sites.map((site) => (
                 <div key={site.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center justify-between">
                   <div>
                     <p className="font-medium dark:text-white">{site.name}</p>
-                    <p className="text-xs text-gray-400">{site.description || "No description"}</p>
+                    <p className="text-xs text-gray-400">Created: {new Date(site.createdAt).toLocaleDateString()}</p>
                   </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${site.status === "ACTIVE" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"}`}>{site.status}</span>
+                  <button onClick={() => handleDeleteSite(site.id)} className="text-sm text-red-600 hover:text-red-800">Delete</button>
                 </div>
               ))}
-              {sites.length === 0 && <p className="text-gray-500 dark:text-gray-400 py-4">No sites yet.</p>}
+              {sites.length === 0 && <p className="text-gray-500 dark:text-gray-400 text-center py-8">No sites yet. Add one above.</p>}
             </div>
           </div>
         ) : (
