@@ -26,11 +26,17 @@ export async function GET(request: Request) {
     const usersSnapshot = await get(ref(db, "users"));
     const users = usersSnapshot.exists() ? (usersSnapshot.val() as Record<string, any>) : {};
 
-    const enriched = tasks.map((task: any) => ({
-      ...task,
-      createdBy: users[task.createdById] ? { id: task.createdById, username: users[task.createdById].username } : null,
-      assignedTo: task.assignedToId && users[task.assignedToId] ? { id: task.assignedToId, username: users[task.assignedToId].username } : null,
-    }));
+    const enriched = tasks.map((task: any) => {
+      const assignedToIds = task.assignedToIds || [];
+      return {
+        ...task,
+        createdBy: users[task.createdById] ? { id: task.createdById, username: users[task.createdById].username } : null,
+        assignedTo: task.assignedToId && users[task.assignedToId] ? { id: task.assignedToId, username: users[task.assignedToId].username } : null,
+        assignedToUsers: assignedToIds
+          .map((uid: string) => (users[uid] ? { id: uid, username: users[uid].username } : null))
+          .filter(Boolean),
+      };
+    });
     enriched.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     return NextResponse.json(enriched);
   } catch (err: any) {
@@ -44,11 +50,12 @@ export async function POST(request: Request) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     if (user.role !== "ADMIN") return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 
-    const { name, category, siteProject, deadline, priority, description, assignedToId } = await request.json();
+    const { name, category, siteProject, deadline, priority, description, assignedToId, assignedToIds } = await request.json();
     const newTaskRef = push(ref(db, "tasks"));
     const taskId = newTaskRef.key!;
 
-    const status = assignedToId ? "ASSIGNED" : "AVAILABLE";
+    const ids = assignedToIds && assignedToIds.length > 0 ? assignedToIds : assignedToId ? [assignedToId] : [];
+    const status = ids.length > 0 ? "ASSIGNED" : "AVAILABLE";
     const task: Record<string, any> = {
       id: taskId,
       name,
@@ -56,19 +63,22 @@ export async function POST(request: Request) {
       siteProject,
       deadline: new Date(deadline).toISOString(),
       priority: priority || "MEDIUM",
-      description,
+      description: description || "",
       status,
       extensionCount: 0,
       locked: false,
+      assignedToIds: ids,
       createdById: user.id,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
-    if (assignedToId) {
-      task.assignedToId = assignedToId;
+    if (ids.length > 0) {
+      task.assignedToId = ids[0];
       task.assignedAt = new Date().toISOString();
-      await createNotification(assignedToId, `You have been assigned "${name}" by admin.`, "ASSIGNED", taskId);
+      for (const uid of ids) {
+        await createNotification(uid, `You have been assigned "${name}" by admin.`, "ASSIGNED", taskId);
+      }
     }
 
     await set(newTaskRef, task);

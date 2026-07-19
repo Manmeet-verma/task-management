@@ -31,7 +31,7 @@ export async function POST(
     const snapshot = await get(taskRef);
     if (!snapshot.exists()) return NextResponse.json({ error: "Task not found" }, { status: 404 });
     const task = snapshot.val();
-    if (task.assignedToId !== user.id) return NextResponse.json({ error: "Not your task" }, { status: 403 });
+    if (task.assignedToId !== user.id && !(task.assignedToIds || []).includes(user.id)) return NextResponse.json({ error: "Not your task" }, { status: 403 });
     if (task.locked) return NextResponse.json({ error: "Task is locked" }, { status: 400 });
     if (!newDeadline) return NextResponse.json({ error: "New deadline is required" }, { status: 400 });
 
