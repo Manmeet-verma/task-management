@@ -108,6 +108,15 @@ export const api = {
     delete: (id: string) =>
       request<{ message: string }>("/categories", { method: "DELETE", body: { id } }),
   },
+  sites: {
+    getAll: () => request<Site[]>("/sites"),
+    create: (data: { name: string; description?: string; repositoryUrl?: string }) =>
+      request<Site>("/sites", { method: "POST", body: data }),
+    update: (id: string, data: Partial<{ name: string; description: string; repositoryUrl: string; status: string }>) =>
+      request<Site>(`/sites/${id}`, { method: "PUT", body: data }),
+    delete: (id: string) =>
+      request<{ message: string }>(`/sites/${id}`, { method: "DELETE" }),
+  },
 };
 
 export interface User {
@@ -195,4 +204,15 @@ export interface Category {
   id: string;
   name: string;
   createdAt: string;
+}
+
+export interface Site {
+  id: string;
+  name: string;
+  description?: string;
+  repositoryUrl?: string;
+  status: string;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
 }

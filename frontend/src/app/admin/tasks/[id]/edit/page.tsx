@@ -3,10 +3,8 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter, useParams } from "next/navigation";
-import { api, type Task, type Category } from "@/lib/api";
+import { api, type Task, type Category, type Site } from "@/lib/api";
 import Navbar from "@/components/Navbar";
-
-const SITES = ["Site A", "Site B", "Site C", "Site D", "Head Office", "Warehouse", "Remote"];
 
 export default function EditTaskPage() {
   const { user, loading } = useAuth();
@@ -15,6 +13,7 @@ export default function EditTaskPage() {
   const taskId = params.id as string;
   const [task, setTask] = useState<Task | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
   const [form, setForm] = useState({ name: "", category: "", siteProject: "", deadline: "", priority: "MEDIUM", description: "" });
   const [customSite, setCustomSite] = useState("");
   const [error, setError] = useState("");
@@ -28,18 +27,19 @@ export default function EditTaskPage() {
     if (taskId) {
       api.tasks.getById(taskId).then((t) => {
         setTask(t);
-        const isCustomSite = !SITES.includes(t.siteProject);
         setForm({
           name: t.name,
           category: t.category,
-          siteProject: isCustomSite ? "Others" : t.siteProject,
+          siteProject: t.siteProject,
           deadline: t.deadline.split("T")[0],
           priority: t.priority,
           description: t.description || "",
         });
-        if (isCustomSite) setCustomSite(t.siteProject);
       });
       api.categories.getAll().then(setCategories).catch(() => {});
+      api.sites.getAll().then((s) => {
+        setSites(s);
+      }).catch(() => {});
     }
   }, [taskId]);
 
@@ -84,7 +84,14 @@ export default function EditTaskPage() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Site *</label>
               <select value={form.siteProject} onChange={(e) => setForm({ ...form, siteProject: e.target.value })} required className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 <option value="">Select site</option>
-                {SITES.map((s) => (<option key={s} value={s}>{s}</option>))}
+                {sites.filter(s => s.status === "ACTIVE").map((s) => (<option key={s.id} value={s.name}>{s.name}</option>))}
+                {sites.length === 0 && (
+                  <>
+                    <option value="Site A">Site A</option>
+                    <option value="Site B">Site B</option>
+                    <option value="Head Office">Head Office</option>
+                  </>
+                )}
                 <option value="Others">Others</option>
               </select>
             </div>

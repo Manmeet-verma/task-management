@@ -3,16 +3,15 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
-import { api, type User, type Category } from "@/lib/api";
+import { api, type User, type Category, type Site } from "@/lib/api";
 import Navbar from "@/components/Navbar";
-
-const SITES = ["Site A", "Site B", "Site C", "Site D", "Head Office", "Warehouse", "Remote"];
 
 export default function NewTaskPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
   const [form, setForm] = useState({
     name: "",
     category: "",
@@ -32,6 +31,7 @@ export default function NewTaskPage() {
         setUsers(u);
       }).catch(() => {});
       api.categories.getAll().then(setCategories).catch(() => {});
+      api.sites.getAll().then(setSites).catch(() => {});
     }
   }, [user]);
 
@@ -88,9 +88,16 @@ export default function NewTaskPage() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Site *</label>
               <select value={form.siteProject} onChange={(e) => setForm({ ...form, siteProject: e.target.value })} required className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 <option value="">Select site</option>
-                {SITES.map((s) => (
-                  <option key={s} value={s}>{s}</option>
+                {sites.filter(s => s.status === "ACTIVE").map((s) => (
+                  <option key={s.id} value={s.name}>{s.name}</option>
                 ))}
+                {sites.length === 0 && (
+                  <>
+                    <option value="Site A">Site A</option>
+                    <option value="Site B">Site B</option>
+                    <option value="Head Office">Head Office</option>
+                  </>
+                )}
                 <option value="Others">Others</option>
               </select>
             </div>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
-import { api, type Task, type User, type DashboardStats, type Category } from "@/lib/api";
+import { api, type Task, type User, type DashboardStats, type Category, type Site } from "@/lib/api";
 import Navbar from "@/components/Navbar";
 import StatusBadge from "@/components/StatusBadge";
 import Link from "next/link";
@@ -14,13 +14,14 @@ export default function AdminPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loadingData, setLoadingData] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [page, setPage] = useState(1);
   const perPage = 10;
-  const [tab, setTab] = useState<"tasks" | "closed" | "users" | "categories">("tasks");
+  const [tab, setTab] = useState<"tasks" | "closed" | "users" | "categories" | "sites">("tasks");
   const [reassigningId, setReassigningId] = useState<string | null>(null);
   const [reassignUserId, setReassignUserId] = useState("");
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
@@ -41,13 +42,14 @@ export default function AdminPage() {
   const loadData = async () => {
     setLoadingData(true);
     try {
-      const [t, u, s, c] = await Promise.all([
-        api.tasks.getAll(), api.admin.getUsers(), api.tasks.getStats(), api.categories.getAll()
+      const [t, u, s, c, st] = await Promise.all([
+        api.tasks.getAll(), api.admin.getUsers(), api.tasks.getStats(), api.categories.getAll(), api.sites.getAll()
       ]);
       setTasks(t);
       setUsers(u);
       setStats(s);
       setCategories(c);
+      setSites(st);
     } catch (err) { console.error(err); }
     finally { setLoadingData(false); }
   };
@@ -162,6 +164,7 @@ export default function AdminPage() {
             { key: "closed" as const, label: "Closed", count: closedTasks.length },
             { key: "users" as const, label: "Users", count: users.length },
             { key: "categories" as const, label: "Categories", count: categories.length },
+            { key: "sites" as const, label: "Sites", count: sites.length },
           ].map((t) => (
             <button key={t.key} onClick={() => { setTab(t.key); setPage(1); setSearch(""); setFilterStatus(""); }} className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${tab === t.key ? "border-indigo-600 text-indigo-600 dark:text-indigo-400" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"}`}>
               {t.label} ({t.count})
@@ -325,6 +328,24 @@ export default function AdminPage() {
               </div>
             ))}
             {users.length === 0 && <p className="text-gray-500 dark:text-gray-400 text-center py-8">No users yet.</p>}
+          </div>
+        ) : tab === "sites" ? (
+          <div className="text-center py-8">
+            <Link href="/admin/sites" className="bg-indigo-600 text-white px-6 py-3 rounded-md hover:bg-indigo-700 inline-block">
+              Go to Sites Management
+            </Link>
+            <div className="mt-6 space-y-2">
+              {sites.map((site) => (
+                <div key={site.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center justify-between">
+                  <div>
+                    <p className="font-medium dark:text-white">{site.name}</p>
+                    <p className="text-xs text-gray-400">{site.description || "No description"}</p>
+                  </div>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${site.status === "ACTIVE" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"}`}>{site.status}</span>
+                </div>
+              ))}
+              {sites.length === 0 && <p className="text-gray-500 dark:text-gray-400 py-4">No sites yet.</p>}
+            </div>
           </div>
         ) : (
           <div>
