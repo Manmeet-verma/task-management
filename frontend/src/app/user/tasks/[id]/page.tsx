@@ -91,6 +91,9 @@ export default function TaskDetailPage() {
             <p><span className="font-medium">Deadline:</span> {new Date(task.deadline).toLocaleDateString()}</p>
             {task.userDeadline && <p><span className="font-medium">Your Deadline:</span> {new Date(task.userDeadline).toLocaleDateString()}</p>}
             <p><span className="font-medium">Priority:</span> {task.priority}</p>
+            {task.assignedToUsers && task.assignedToUsers.length > 0 && (
+              <p><span className="font-medium">Assigned:</span> {task.assignedToUsers.map(u => u.username).join(", ")}</p>
+            )}
             {task.extensionCount > 0 && <p className="text-red-600 dark:text-red-400"><span className="font-medium">Extensions:</span> {task.extensionCount}</p>}
           </div>
           {task.description && <p className="text-gray-700 dark:text-gray-300">{task.description}</p>}

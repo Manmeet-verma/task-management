@@ -49,7 +49,7 @@ export const api = {
     getById: (id: string) => request<Task>(`/tasks/${id}`),
     create: (data: CreateTaskPayload) =>
       request<Task>("/tasks", { method: "POST", body: data }),
-    update: (id: string, data: Partial<CreateTaskPayload & { status: string; assignedToId: string }>) =>
+    update: (id: string, data: Partial<CreateTaskPayload & { status: string; assignedToId: string; assignedToIds: string[] }>) =>
       request<Task>(`/tasks/${id}`, { method: "PUT", body: data }),
     delete: (id: string) =>
       request<{ message: string }>(`/tasks/${id}`, { method: "DELETE" }),
@@ -153,6 +153,8 @@ export interface Task {
   createdBy?: { id: string; username: string };
   assignedToId?: string;
   assignedTo?: { id: string; username: string };
+  assignedToIds?: string[];
+  assignedToUsers?: { id: string; username: string }[];
   submissions?: Submission[];
 }
 
@@ -179,6 +181,7 @@ export interface CreateTaskPayload {
   priority: string;
   description: string;
   assignedToId?: string;
+  assignedToIds?: string[];
 }
 
 export interface DashboardStats {

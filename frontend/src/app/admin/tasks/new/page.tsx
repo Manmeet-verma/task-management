@@ -19,23 +19,27 @@ export default function NewTaskPage() {
     deadline: "",
     priority: "MEDIUM",
     description: "",
-    assignedToId: "",
   });
+  const [assignedToIds, setAssignedToIds] = useState<string[]>([]);
   const [customSite, setCustomSite] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (user?.role === "ADMIN") {
-      api.admin.getUsers().then((u) => {
-        setUsers(u);
-      }).catch(() => {});
+      api.admin.getUsers().then((u) => setUsers(u)).catch(() => {});
       api.categories.getAll().then(setCategories).catch(() => {});
       api.sites.getAll().then(setSites).catch(() => {});
     }
   }, [user]);
 
   if (loading || !user) return null;
+
+  const toggleUser = (userId: string) => {
+    setAssignedToIds((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,6 +50,7 @@ export default function NewTaskPage() {
         ...form,
         siteProject: form.siteProject === "Others" ? customSite : form.siteProject,
         description: form.description || "",
+        assignedToIds,
       };
       await api.tasks.create(submitData);
       router.push("/admin");
@@ -64,6 +69,10 @@ export default function NewTaskPage() {
         {error && <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-3 rounded-md mb-4 text-sm">{error}</div>}
         <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 space-y-4">
           <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Task Name *</label>
+            <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category *</label>
             <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} required className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
               <option value="">Select category</option>
@@ -78,10 +87,6 @@ export default function NewTaskPage() {
                 <option value="Testing">Testing</option>
               </>}
             </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Task Name *</label>
-            <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -107,15 +112,6 @@ export default function NewTaskPage() {
                 <input type="text" value={customSite} onChange={(e) => setCustomSite(e.target.value)} required placeholder="Enter site name" className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
             )}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Assign User (optional)</label>
-              <select value={form.assignedToId} onChange={(e) => setForm({ ...form, assignedToId: e.target.value })} className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                <option value="">Select user (optional)</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>{u.username} ({u.role})</option>
-                ))}
-              </select>
-            </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -134,6 +130,21 @@ export default function NewTaskPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description (optional)</label>
             <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={4} className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Assign Users (click to toggle)</label>
+            <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-md p-3">
+              {users.filter(u => u.role === "USER").map((u) => (
+                <label key={u.id} className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-colors ${assignedToIds.includes(u.id) ? "bg-indigo-100 dark:bg-indigo-900/30 border border-indigo-400" : "hover:bg-gray-100 dark:hover:bg-gray-700 border border-transparent"}`}>
+                  <input type="checkbox" checked={assignedToIds.includes(u.id)} onChange={() => toggleUser(u.id)} className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                  <span className="text-sm dark:text-white">{u.username}</span>
+                </label>
+              ))}
+              {users.filter(u => u.role === "USER").length === 0 && <p className="text-sm text-gray-400 col-span-2">No users available</p>}
+            </div>
+            {assignedToIds.length > 0 && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{assignedToIds.length} user(s) selected</p>
+            )}
           </div>
           <div className="flex gap-3">
             <button type="submit" disabled={saving} className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 disabled:opacity-50">

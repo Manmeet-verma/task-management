@@ -10,7 +10,7 @@ exports.submit = async (req, res) => {
     if (!taskSnapshot.exists()) return res.status(404).json({ error: 'Task not found' });
     const task = taskSnapshot.val();
 
-    if (task.assignedToId !== req.user.id) return res.status(403).json({ error: 'Not your task' });
+    if (task.assignedToId !== req.user.id && !(task.assignedToIds || []).includes(req.user.id)) return res.status(403).json({ error: 'Not your task' });
     if (task.status !== 'IN_PROGRESS' && task.status !== 'REWORK' && task.status !== 'PENDING_RESUBMIT') {
       return res.status(400).json({ error: 'Task cannot be submitted' });
     }

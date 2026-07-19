@@ -7,6 +7,8 @@ const authRoutes = require('./routes/auth');
 const taskRoutes = require('./routes/tasks');
 const submissionRoutes = require('./routes/submissions');
 const siteRoutes = require('./routes/sites');
+const adminRoutes = require('./routes/admin');
+const categoryRoutes = require('./routes/categories');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -19,6 +21,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/submissions', submissionRoutes);
 app.use('/api/sites', siteRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/categories', categoryRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });

@@ -244,7 +244,11 @@ export default function AdminPage() {
                         <td className="px-4 py-3 font-medium dark:text-white">{task.name}</td>
                         <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{task.category}</td>
                         <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{task.siteProject}</td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{task.assignedTo?.username || "-"}</td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
+                          {task.assignedToUsers && task.assignedToUsers.length > 0
+                            ? task.assignedToUsers.map(u => u.username).join(", ")
+                            : task.assignedTo?.username || "-"}
+                        </td>
                         <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{new Date(task.deadline).toLocaleDateString()}</td>
                         <td className="px-4 py-3"><StatusBadge status={task.status} /></td>
                         <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-center">{task.extensionCount || 0}</td>

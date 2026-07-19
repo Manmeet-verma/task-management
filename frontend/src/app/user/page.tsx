@@ -64,6 +64,9 @@ export default function UserPage() {
                   <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1 mb-4">
                     <p>Category: {task.category}</p>
                     <p>Site: {task.siteProject}</p>
+                    {task.assignedToUsers && task.assignedToUsers.length > 0 && (
+                      <p>Assigned: {task.assignedToUsers.map(u => u.username).join(", ")}</p>
+                    )}
                     <p>Deadline: {new Date(task.deadline).toLocaleDateString()}</p>
                     {task.userDeadline && <p>Your Deadline: {new Date(task.userDeadline).toLocaleDateString()}</p>}
                     {task.extensionCount > 0 && <p className="text-red-600 dark:text-red-400">Extensions: {task.extensionCount}</p>}
