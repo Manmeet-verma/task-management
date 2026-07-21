@@ -35,6 +35,7 @@ export async function GET(request: Request) {
         assignedToUsers: assignedToIds
           .map((uid: string) => (users[uid] ? { id: uid, username: users[uid].username } : null))
           .filter(Boolean),
+        assignedByName: users[task.createdById] ? users[task.createdById].username : null,
       };
     });
     enriched.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -48,13 +49,36 @@ export async function POST(request: Request) {
   try {
     const user = verifyAuth(request);
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (user.role !== "ADMIN") return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 
-    const { name, category, siteProject, deadline, priority, description, assignedToId, assignedToIds } = await request.json();
+    const contentType = request.headers.get("content-type") || "";
+    let taskData: any = {};
+
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await request.formData();
+      taskData.name = formData.get("name") as string;
+      taskData.category = formData.get("category") as string;
+      taskData.siteProject = formData.get("siteProject") as string;
+      taskData.deadline = formData.get("deadline") as string;
+      taskData.priority = formData.get("priority") as string;
+      taskData.description = formData.get("description") as string;
+      taskData.assignedToId = formData.get("assignedToId") as string;
+
+      const file = formData.get("file") as File | null;
+      if (file && file.size > 0) {
+        const bytes = await file.arrayBuffer();
+        const base64 = Buffer.from(bytes).toString("base64");
+        taskData.attachmentUrl = `data:${file.type};base64,${base64}`;
+        taskData.attachmentType = file.type;
+      }
+    } else {
+      taskData = await request.json();
+    }
+
+    const { name, category, siteProject, deadline, priority, description, assignedToId, attachmentUrl, attachmentType } = taskData;
     const newTaskRef = push(ref(db, "tasks"));
     const taskId = newTaskRef.key!;
 
-    const ids = assignedToIds && assignedToIds.length > 0 ? assignedToIds : assignedToId ? [assignedToId] : [];
+    const ids = assignedToId ? [assignedToId] : [];
     const status = ids.length > 0 ? "ASSIGNED" : "AVAILABLE";
     const task: Record<string, any> = {
       id: taskId,
@@ -73,11 +97,17 @@ export async function POST(request: Request) {
       updatedAt: new Date().toISOString(),
     };
 
+    if (attachmentUrl) {
+      task.attachmentUrl = attachmentUrl;
+      task.attachmentType = attachmentType || "";
+    }
+
     if (ids.length > 0) {
       task.assignedToId = ids[0];
       task.assignedAt = new Date().toISOString();
+      task.assignedByName = user.username;
       for (const uid of ids) {
-        await createNotification(uid, `You have been assigned "${name}" by admin.`, "ASSIGNED", taskId);
+        await createNotification(uid, `You have been assigned "${name}" by ${user.username}.`, "ASSIGNED", taskId);
       }
     }
 

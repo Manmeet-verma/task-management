@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import { api, type User, type Category, type Site } from "@/lib/api";
@@ -20,13 +20,17 @@ export default function NewTaskPage() {
     priority: "MEDIUM",
     description: "",
   });
-  const [assignedToIds, setAssignedToIds] = useState<string[]>([]);
+  const [assignedToId, setAssignedToId] = useState("");
   const [customSite, setCustomSite] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [taskFile, setTaskFile] = useState<File | null>(null);
+  const [taskFilePreview, setTaskFilePreview] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (user?.role === "ADMIN") {
+    if (user?.role === "ADMIN" || user?.role === "USER") {
       api.admin.getUsers().then((u) => setUsers(u)).catch(() => {});
       api.categories.getAll().then(setCategories).catch(() => {});
       api.sites.getAll().then(setSites).catch(() => {});
@@ -35,10 +39,14 @@ export default function NewTaskPage() {
 
   if (loading || !user) return null;
 
-  const toggleUser = (userId: string) => {
-    setAssignedToIds((prev) =>
-      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
-    );
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setTaskFile(file);
+      const reader = new FileReader();
+      reader.onload = (ev) => setTaskFilePreview(ev.target?.result as string);
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,13 +54,24 @@ export default function NewTaskPage() {
     setError("");
     setSaving(true);
     try {
-      const submitData = {
-        ...form,
-        siteProject: form.siteProject === "Others" ? customSite : form.siteProject,
-        description: form.description || "",
-        assignedToIds,
-      };
-      await api.tasks.create(submitData);
+      const formData = new FormData();
+      formData.append("name", form.name);
+      formData.append("category", form.category);
+      formData.append("siteProject", form.siteProject === "Others" ? customSite : form.siteProject);
+      formData.append("deadline", form.deadline);
+      formData.append("priority", form.priority);
+      formData.append("description", form.description || "");
+      if (assignedToId) formData.append("assignedToId", assignedToId);
+      if (taskFile) formData.append("file", taskFile);
+
+      const token = localStorage.getItem("token");
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to create task");
       router.push("/admin");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to create task");
@@ -96,13 +115,11 @@ export default function NewTaskPage() {
                 {sites.filter(s => s.status === "ACTIVE").map((s) => (
                   <option key={s.id} value={s.name}>{s.name}</option>
                 ))}
-                {sites.length === 0 && (
-                  <>
-                    <option value="Site A">Site A</option>
-                    <option value="Site B">Site B</option>
-                    <option value="Head Office">Head Office</option>
-                  </>
-                )}
+                {sites.length === 0 && <>
+                  <option value="Site A">Site A</option>
+                  <option value="Site B">Site B</option>
+                  <option value="Head Office">Head Office</option>
+                </>}
                 <option value="Others">Others</option>
               </select>
             </div>
@@ -132,18 +149,35 @@ export default function NewTaskPage() {
             <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={4} className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Assign Users (click to toggle)</label>
-            <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-md p-3">
-              {users.filter(u => u.role === "USER").map((u) => (
-                <label key={u.id} className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-colors ${assignedToIds.includes(u.id) ? "bg-indigo-100 dark:bg-indigo-900/30 border border-indigo-400" : "hover:bg-gray-100 dark:hover:bg-gray-700 border border-transparent"}`}>
-                  <input type="checkbox" checked={assignedToIds.includes(u.id)} onChange={() => toggleUser(u.id)} className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                  <span className="text-sm dark:text-white">{u.username}</span>
-                </label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Assign To (single user) *</label>
+            <select value={assignedToId} onChange={(e) => setAssignedToId(e.target.value)} required className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="">Select user</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>{u.username} ({u.role})</option>
               ))}
-              {users.filter(u => u.role === "USER").length === 0 && <p className="text-sm text-gray-400 col-span-2">No users available</p>}
+              {users.length === 0 && <option value="" disabled>No users available</option>}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Attach File (optional)</label>
+            <div className="flex gap-2">
+              <input ref={fileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileSelect} className="hidden" />
+              <button type="button" onClick={() => fileInputRef.current?.click()} className="bg-blue-500 text-white px-3 py-2 rounded-md hover:bg-blue-600 text-sm">
+                Upload PDF/Image
+              </button>
+              <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileSelect} className="hidden" />
+              <button type="button" onClick={() => cameraInputRef.current?.click()} className="bg-purple-500 text-white px-3 py-2 rounded-md hover:bg-purple-600 text-sm">
+                Camera
+              </button>
             </div>
-            {assignedToIds.length > 0 && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{assignedToIds.length} user(s) selected</p>
+            {taskFile && (
+              <div className="mt-2">
+                <p className="text-sm text-gray-600 dark:text-gray-400">Selected: {taskFile.name}</p>
+                {taskFilePreview && taskFile.type.startsWith("image/") && (
+                  <img src={taskFilePreview} alt="Preview" className="mt-2 max-h-32 rounded border border-gray-200 dark:border-gray-700" />
+                )}
+                <button type="button" onClick={() => { setTaskFile(null); setTaskFilePreview(""); }} className="text-xs text-red-600 hover:underline mt-1">Remove</button>
+              </div>
             )}
           </div>
           <div className="flex gap-3">

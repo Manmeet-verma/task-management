@@ -26,12 +26,22 @@ export async function POST(
 
     const { id } = await params;
     const body = await request.json();
-    const { assignedToId } = body;
+    const { assignedToId, reason } = body;
+
+    if (!assignedToId) return NextResponse.json({ error: "New user is required" }, { status: 400 });
+    if (!reason || !reason.trim()) return NextResponse.json({ error: "Reassign reason is required" }, { status: 400 });
 
     const taskRef = ref(db, `tasks/${id}`);
     const snapshot = await get(taskRef);
     if (!snapshot.exists()) return NextResponse.json({ error: "Task not found" }, { status: 404 });
     const task = snapshot.val();
+
+    if (task.locked || task.status === "LOCKED") {
+      return NextResponse.json({ error: "Cannot reassign a locked/completed task" }, { status: 400 });
+    }
+    if (task.status === "COMPLETED") {
+      return NextResponse.json({ error: "Cannot reassign a completed task" }, { status: 400 });
+    }
 
     const userSnapshot = await get(ref(db, `users/${user.id}`));
     const userData = userSnapshot.exists() ? userSnapshot.val() : null;
@@ -43,19 +53,28 @@ export async function POST(
 
     const usersSnapshot = await get(ref(db, `users/${assignedToId}`));
     if (!usersSnapshot.exists()) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    const newUserData = usersSnapshot.val();
 
     const oldAssignedId = task.assignedToId;
+    const oldAssignedSnapshot = oldAssignedId ? await get(ref(db, `users/${oldAssignedId}`)) : null;
+    const oldAssignedName = oldAssignedSnapshot?.exists() ? oldAssignedSnapshot.val().username : "Unknown";
+
     await update(taskRef, {
       assignedToId,
+      assignedToIds: [assignedToId],
       status: "ASSIGNED",
       assignedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      reassignReason: reason.trim(),
+      reassignedBy: user.username,
     });
 
-    await createNotification(assignedToId, `You have been assigned "${task.name}" by admin.`, "ASSIGNED", id);
+    const adminSnapshot = await get(ref(db, `users/${user.id}`));
+    const adminName = adminSnapshot.exists() ? adminSnapshot.val().username : "Admin";
+
+    await createNotification(assignedToId, `You have been assigned "${task.name}" by ${adminName}.`, "ASSIGNED", id);
     if (oldAssignedId && oldAssignedId !== assignedToId) {
-      const assignee = usersSnapshot.val();
-      await createNotification(oldAssignedId, `"${task.name}" has been reassigned to ${assignee.username}.`, "REASSIGNED", id);
+      await createNotification(oldAssignedId, `"${task.name}" has been reassigned from ${oldAssignedName} to ${newUserData.username} by ${adminName}. Reason: ${reason.trim()}`, "REASSIGNED", id);
     }
 
     const updated = (await get(taskRef)).val();

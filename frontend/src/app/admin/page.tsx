@@ -21,10 +21,13 @@ export default function AdminPage() {
   const [filterStatus, setFilterStatus] = useState("");
   const [page, setPage] = useState(1);
   const perPage = 10;
-  const [tab, setTab] = useState<"tasks" | "closed" | "users" | "categories" | "sites">("tasks");
+  const [tab, setTab] = useState<"all" | "completed" | "pending" | "reassigned" | "extension" | "users" | "categories" | "sites">("all");
   const [reassigningId, setReassigningId] = useState<string | null>(null);
   const [reassignUserId, setReassignUserId] = useState("");
+  const [reassignReason, setReassignReason] = useState("");
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
+  const [rejectExtendId, setRejectExtendId] = useState<string | null>(null);
+  const [rejectExtendReason, setRejectExtendReason] = useState("");
 
   const [showUserForm, setShowUserForm] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -61,6 +64,8 @@ export default function AdminPage() {
     return task.createdById === user.id;
   };
 
+  const myTaskCount = tasks.length;
+
   const handleDeleteTask = async (id: string) => {
     if (!confirm("Delete this task?")) return;
     try { await api.tasks.delete(id); loadData(); } catch (err: any) { alert(err.message || "Failed"); }
@@ -75,7 +80,12 @@ export default function AdminPage() {
   };
 
   const handleRejectExtend = async (id: string) => {
-    try { await api.tasks.rejectExtend(id); loadData(); } catch (err) { console.error(err); }
+    try {
+      await api.tasks.rejectExtend(id, rejectExtendReason || undefined);
+      setRejectExtendId(null);
+      setRejectExtendReason("");
+      loadData();
+    } catch (err) { console.error(err); }
   };
 
   const handleLock = async (id: string) => {
@@ -84,8 +94,14 @@ export default function AdminPage() {
   };
 
   const handleReassign = async (id: string) => {
-    if (!reassignUserId) return;
-    try { await api.tasks.reassign(id, reassignUserId); setReassigningId(null); setReassignUserId(""); loadData(); } catch (err: any) { alert(err.message || "Failed"); }
+    if (!reassignUserId || !reassignReason.trim()) return;
+    try {
+      await api.tasks.reassign(id, reassignUserId, reassignReason.trim());
+      setReassigningId(null);
+      setReassignUserId("");
+      setReassignReason("");
+      loadData();
+    } catch (err: any) { alert(err.message || "Failed"); }
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -134,23 +150,26 @@ export default function AdminPage() {
     try { await api.sites.delete(id); loadData(); } catch (err) { console.error(err); }
   };
 
-  const activeTasks = tasks.filter((t) => t.status !== "LOCKED");
-  const closedTasks = tasks.filter((t) => t.status === "LOCKED");
+  const completedTasks = tasks.filter((t) => t.status === "COMPLETED" && !t.locked);
+  const lockedTasks = tasks.filter((t) => t.status === "LOCKED" || t.locked);
+  const reassignedTasks = tasks.filter((t) => t.reassignReason);
+  const extensionTasks = tasks.filter((t) => t.extendStatus === "PENDING" || t.extendStatus === "APPROVED");
+  const pendingTasks = tasks.filter((t) => t.status === "PENDING" || t.extendStatus === "PENDING" || (t.reassignReason && t.status !== "LOCKED"));
 
-  const filteredActive = activeTasks.filter((t) => {
+  const filteredTasks = tasks.filter((t) => {
     const matchSearch = !search || t.name.toLowerCase().includes(search.toLowerCase()) || (t.assignedTo?.username || "").toLowerCase().includes(search.toLowerCase()) || (t.siteProject || "").toLowerCase().includes(search.toLowerCase());
+    let matchTab = true;
+    if (tab === "completed") matchTab = t.status === "COMPLETED" || t.status === "LOCKED";
+    else if (tab === "pending") matchTab = t.status === "PENDING" || t.extendStatus === "PENDING";
+    else if (tab === "reassigned") matchTab = !!t.reassignReason;
+    else if (tab === "extension") matchTab = t.extendStatus === "PENDING" || t.extendStatus === "APPROVED" || t.extendStatus === "REJECTED";
+    else if (tab === "all") matchTab = true;
     const matchStatus = !filterStatus || t.status === filterStatus;
-    return matchSearch && matchStatus;
+    return matchSearch && matchTab && matchStatus;
   });
 
-  const filteredClosed = closedTasks.filter((t) => {
-    const matchSearch = !search || t.name.toLowerCase().includes(search.toLowerCase()) || (t.assignedTo?.username || "").toLowerCase().includes(search.toLowerCase()) || (t.siteProject || "").toLowerCase().includes(search.toLowerCase());
-    return matchSearch;
-  });
-
-  const currentList = tab === "closed" ? filteredClosed : filteredActive;
-  const totalPages = Math.ceil(currentList.length / perPage);
-  const paginated = currentList.slice((page - 1) * perPage, page * perPage);
+  const totalPages = Math.ceil(filteredTasks.length / perPage);
+  const paginated = filteredTasks.slice((page - 1) * perPage, page * perPage);
 
   if (loading || !user) return null;
 
@@ -159,11 +178,14 @@ export default function AdminPage() {
       <Navbar />
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold dark:text-white">Admin Dashboard</h1>
+          <div>
+            <h1 className="text-2xl font-bold dark:text-white">Admin Dashboard</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">View all tasks. Only the assigning admin can manage each task.</p>
+          </div>
           <div className="flex gap-2">
             {tab === "users" ? (
               <button onClick={() => { setEditingUser(null); setUserForm({ username: "", email: "", password: "", role: "USER", isMaster: false }); setShowUserForm(true); }} className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">+ New User</button>
-            ) : tab === "categories" ? null : (
+            ) : tab === "categories" || tab === "sites" ? null : (
               <Link href="/admin/tasks/new" className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">+ New Task</Link>
             )}
           </div>
@@ -171,8 +193,11 @@ export default function AdminPage() {
 
         <div className="flex gap-4 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
           {[
-            { key: "tasks" as const, label: "Tasks", count: activeTasks.length },
-            { key: "closed" as const, label: "Closed", count: closedTasks.length },
+            { key: "all" as const, label: "All", count: tasks.length },
+            { key: "completed" as const, label: "Completed", count: completedTasks.length + lockedTasks.length },
+            { key: "pending" as const, label: "Pending", count: pendingTasks.length },
+            { key: "reassigned" as const, label: "Reassigned", count: reassignedTasks.length },
+            { key: "extension" as const, label: "Extension", count: extensionTasks.length },
             { key: "users" as const, label: "Users", count: users.length },
             { key: "categories" as const, label: "Categories", count: categories.length },
             { key: "sites" as const, label: "Sites", count: sites.length },
@@ -202,17 +227,18 @@ export default function AdminPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role</label>
-                  <select value={userForm.role} onChange={(e) => setUserForm({ ...userForm, role: e.target.value })} className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <select value={userForm.isMaster ? "SUPER_ADMIN" : userForm.role} onChange={(e) => {
+                    if (e.target.value === "SUPER_ADMIN") {
+                      setUserForm({ ...userForm, role: "ADMIN", isMaster: true });
+                    } else {
+                      setUserForm({ ...userForm, role: e.target.value, isMaster: false });
+                    }
+                  }} className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     <option value="USER">User</option>
                     <option value="ADMIN">Admin</option>
+                    <option value="SUPER_ADMIN">Super Admin</option>
                   </select>
                 </div>
-                {userForm.role === "ADMIN" && (
-                  <div className="flex items-center gap-2">
-                    <input type="checkbox" id="isMaster" checked={userForm.isMaster} onChange={(e) => setUserForm({ ...userForm, isMaster: e.target.checked })} className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                    <label htmlFor="isMaster" className="text-sm font-medium text-gray-700 dark:text-gray-300">Master Admin (can manage all tasks)</label>
-                  </div>
-                )}
               </div>
               <div className="flex gap-2">
                 <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">{editingUser ? "Update User" : "Create User"}</button>
@@ -224,25 +250,81 @@ export default function AdminPage() {
 
         {loadingData ? (
           <div className="text-center py-12 text-gray-500 dark:text-gray-400">Loading...</div>
-        ) : tab === "tasks" || tab === "closed" ? (
+        ) : tab === "users" || tab === "categories" || tab === "sites" ? (
+          tab === "users" ? (
+            <div className="space-y-4">
+              {users.map((u) => (
+                <div key={u.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center justify-between">
+                  <div>
+                    <p className="font-medium dark:text-white">{u.username} {u.isMaster && <span className="text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full ml-1">Super Admin</span>}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{u.email}</p>
+                    <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full ${u.role === "ADMIN" ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300" : "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300"}`}>{u.role}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => { setEditingUser(u); setUserForm({ username: u.username, email: u.email, password: "", role: u.role, isMaster: u.isMaster || false }); setShowUserForm(true); }} className="text-sm text-indigo-600 hover:text-indigo-800">Edit</button>
+                    <button onClick={() => handleDeleteUser(u.id)} className="text-sm text-red-600 hover:text-red-800">Delete</button>
+                  </div>
+                </div>
+              ))}
+              {users.length === 0 && <p className="text-gray-500 dark:text-gray-400 text-center py-8">No users yet.</p>}
+            </div>
+          ) : tab === "sites" ? (
+            <div>
+              <div className="flex gap-2 mb-6">
+                <input type="text" value={newSite} onChange={(e) => setNewSite(e.target.value)} placeholder="New site name..." className="flex-1 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" onKeyDown={(e) => e.key === "Enter" && handleAddSite()} />
+                <button onClick={handleAddSite} className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">Add Site</button>
+              </div>
+              <div className="space-y-2">
+                {sites.map((site) => (
+                  <div key={site.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center justify-between">
+                    <div>
+                      <p className="font-medium dark:text-white">{site.name}</p>
+                      <p className="text-xs text-gray-400">Created: {new Date(site.createdAt).toLocaleDateString()}</p>
+                    </div>
+                    <button onClick={() => handleDeleteSite(site.id)} className="text-sm text-red-600 hover:text-red-800">Delete</button>
+                  </div>
+                ))}
+                {sites.length === 0 && <p className="text-gray-500 dark:text-gray-400 text-center py-8">No sites yet. Add one above.</p>}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div className="flex gap-2 mb-6">
+                <input type="text" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="New category name..." className="flex-1 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" onKeyDown={(e) => e.key === "Enter" && handleAddCategory()} />
+                <button onClick={handleAddCategory} className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">Add Category</button>
+              </div>
+              <div className="space-y-2">
+                {categories.map((cat) => (
+                  <div key={cat.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center justify-between">
+                    <div>
+                      <p className="font-medium dark:text-white">{cat.name}</p>
+                      <p className="text-xs text-gray-400">Created: {new Date(cat.createdAt).toLocaleDateString()}</p>
+                    </div>
+                    <button onClick={() => handleDeleteCategory(cat.id)} className="text-sm text-red-600 hover:text-red-800">Delete</button>
+                  </div>
+                ))}
+                {categories.length === 0 && <p className="text-gray-500 dark:text-gray-400 text-center py-8">No categories yet. Add one above.</p>}
+              </div>
+            </div>
+          )
+        ) : (
           <>
             <div className="flex gap-4 mb-4">
               <input type="text" placeholder="Search tasks..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} className="flex-1 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-              {tab === "tasks" && (
-                <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }} className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 dark:text-white">
-                  <option value="">All Status</option>
-                  <option value="ASSIGNED">Assigned</option>
-                  <option value="IN_PROGRESS">In Progress</option>
-                  <option value="PENDING">Pending</option>
-                  <option value="COMPLETED">Completed</option>
-                </select>
-              )}
+              <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }} className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 dark:text-white">
+                <option value="">All Status</option>
+                <option value="ASSIGNED">Assigned</option>
+                <option value="IN_PROGRESS">In Progress</option>
+                <option value="PENDING">Pending</option>
+                <option value="COMPLETED">Completed</option>
+                <option value="LOCKED">Locked</option>
+              </select>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 dark:border-gray-700">
-                    {["Task Name", "Category", "Site", "Assigned User", "Deadline", "Status", "Ext Count", "Actions"].map((h) => (
+                    {["Task Name", "Category", "Site", "Assigned To", "Assigned By", "Deadline", "Status", "Actions"].map((h) => (
                       <th key={h} className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">{h}</th>
                     ))}
                   </tr>
@@ -256,59 +338,82 @@ export default function AdminPage() {
                         <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{task.category}</td>
                         <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{task.siteProject}</td>
                         <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
-                          {task.assignedToUsers && task.assignedToUsers.length > 0
-                            ? task.assignedToUsers.map(u => u.username).join(", ")
-                            : task.assignedTo?.username || "-"}
+                          {task.assignedTo?.username || "-"}
+                        </td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
+                          {task.assignedByName || task.createdBy?.username || "-"}
                         </td>
                         <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{new Date(task.deadline).toLocaleDateString()}</td>
                         <td className="px-4 py-3"><StatusBadge status={task.status} /></td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-center">{task.extensionCount || 0}</td>
                         <td className="px-4 py-3">
-                          <div className="flex gap-1 flex-wrap">
-                            <Link href={`/admin/tasks/${task.id}/edit`} className="text-xs text-indigo-600 hover:underline px-1">Edit</Link>
-                            {task.status === "COMPLETED" && !task.locked && (
-                              <button onClick={() => handleApproveComplete(task.id)} className="text-xs text-green-600 hover:underline px-1">Verify</button>
+                          <div className="flex gap-1 flex-wrap items-center">
+                            {!canManage && (
+                              <span className="text-xs text-gray-400 italic">View Only</span>
                             )}
-                            {task.extendStatus === "PENDING" && (
+                            {!task.locked && task.status !== "LOCKED" && task.status !== "COMPLETED" && canManage && (
+                              <Link href={`/admin/tasks/${task.id}/edit`} className="text-xs text-indigo-600 hover:underline px-1">Edit</Link>
+                            )}
+                            {task.status === "COMPLETED" && !task.locked && canManage && (
+                              <button onClick={() => handleApproveComplete(task.id)} className="text-xs text-green-600 hover:underline px-1">Accept & Lock</button>
+                            )}
+                            {task.extendStatus === "PENDING" && canManage && (
                               <>
                                 <button onClick={() => handleApproveExtend(task.id)} className="text-xs text-green-600 hover:underline px-1">Accept Ext</button>
-                                <button onClick={() => handleRejectExtend(task.id)} className="text-xs text-red-600 hover:underline px-1">Reject Ext</button>
+                                <button onClick={() => { setRejectExtendId(task.id); setRejectExtendReason(""); }} className="text-xs text-red-600 hover:underline px-1">Reject Ext</button>
                               </>
                             )}
-                            {canManage && !task.locked && (
-                              <button onClick={() => handleLock(task.id)} className="text-xs text-gray-600 hover:underline px-1">Lock</button>
+                            {canManage && !task.locked && task.status !== "LOCKED" && task.status !== "COMPLETED" && (
+                              <button onClick={() => { setReassigningId(task.id); setReassignUserId(""); setReassignReason(""); }} className="text-xs text-orange-600 hover:underline px-1">Reassign</button>
                             )}
-                            {canManage && (
-                              <button onClick={() => { setReassigningId(task.id); setReassignUserId(""); }} className="text-xs text-orange-600 hover:underline px-1">Reassign</button>
+                            {canManage && !task.locked && task.status !== "LOCKED" && task.status !== "COMPLETED" && (
+                              <button onClick={() => handleLock(task.id)} className="text-xs text-gray-600 hover:underline px-1">Lock</button>
                             )}
                             {canManage && (
                               <button onClick={() => handleDeleteTask(task.id)} className="text-xs text-red-600 hover:underline px-1">Delete</button>
                             )}
-                            {(task.extendReason || task.lastExtReason || task.completedRemarks) && (
+                            {(task.extendReason || task.lastExtReason || task.completedRemarks || task.reassignReason || task.extRejectReason) && (
                               <button onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)} className="text-xs text-blue-600 hover:underline px-1">
                                 {expandedTaskId === task.id ? "Hide" : "Details"}
                               </button>
                             )}
                           </div>
                           {reassigningId === task.id && (
-                            <div className="mt-2 flex gap-2">
-                              <select value={reassignUserId} onChange={(e) => setReassignUserId(e.target.value)} className="text-xs border rounded px-2 py-1 dark:bg-gray-700 dark:text-white dark:border-gray-600">
-                                <option value="">Select user</option>
+                            <div className="mt-2 space-y-2">
+                              <select value={reassignUserId} onChange={(e) => setReassignUserId(e.target.value)} className="text-xs border rounded px-2 py-1 dark:bg-gray-700 dark:text-white dark:border-gray-600 w-full">
+                                <option value="">Select new user</option>
                                 {users.map((u) => (
                                   <option key={u.id} value={u.id}>{u.username} ({u.role})</option>
                                 ))}
                               </select>
-                              <button onClick={() => handleReassign(task.id)} className="text-xs bg-indigo-600 text-white px-2 py-1 rounded">Go</button>
-                              <button onClick={() => setReassigningId(null)} className="text-xs text-gray-500">Cancel</button>
+                              <input type="text" value={reassignReason} onChange={(e) => setReassignReason(e.target.value)} placeholder="Reassign reason (required)" className="text-xs border rounded px-2 py-1 dark:bg-gray-700 dark:text-white dark:border-gray-600 w-full" />
+                              <div className="flex gap-2">
+                                <button onClick={() => handleReassign(task.id)} disabled={!reassignUserId || !reassignReason.trim()} className="text-xs bg-indigo-600 text-white px-2 py-1 rounded disabled:opacity-50">Reassign</button>
+                                <button onClick={() => { setReassigningId(null); setReassignReason(""); }} className="text-xs text-gray-500">Cancel</button>
+                              </div>
+                            </div>
+                          )}
+                          {rejectExtendId === task.id && (
+                            <div className="mt-2 space-y-2">
+                              <input type="text" value={rejectExtendReason} onChange={(e) => setRejectExtendReason(e.target.value)} placeholder="Reject reason (optional)" className="text-xs border rounded px-2 py-1 dark:bg-gray-700 dark:text-white dark:border-gray-600 w-full" />
+                              <div className="flex gap-2">
+                                <button onClick={() => handleRejectExtend(task.id)} className="text-xs bg-red-600 text-white px-2 py-1 rounded">Confirm Reject</button>
+                                <button onClick={() => { setRejectExtendId(null); setRejectExtendReason(""); }} className="text-xs text-gray-500">Cancel</button>
+                              </div>
                             </div>
                           )}
                           {expandedTaskId === task.id && (
                             <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-900 rounded text-xs space-y-1">
+                              {task.reassignReason && <p className="text-orange-600 dark:text-orange-400"><span className="font-medium">Reassign Reason:</span> {task.reassignReason}</p>}
+                              {task.reassignedBy && <p className="text-orange-600 dark:text-orange-400"><span className="font-medium">Reassigned By:</span> {task.reassignedBy}</p>}
                               {task.extendReason && <p className="text-orange-600 dark:text-orange-400"><span className="font-medium">Extension Reason:</span> {task.extendReason}</p>}
                               {task.lastExtReason && <p className="text-gray-600 dark:text-gray-400"><span className="font-medium">Last Ext Reason:</span> {task.lastExtReason}</p>}
+                              {task.extRejectReason && <p className="text-red-600 dark:text-red-400"><span className="font-medium">Ext Reject Reason:</span> {task.extRejectReason}</p>}
+                              {task.extRejectedBy && <p className="text-red-600 dark:text-red-400"><span className="font-medium">Rejected By:</span> {task.extRejectedBy}</p>}
                               {task.completedRemarks && <p className="text-green-600 dark:text-green-400"><span className="font-medium">Completed Remarks:</span> {task.completedRemarks}</p>}
                               {task.pendingReason && <p className="text-yellow-600 dark:text-yellow-400"><span className="font-medium">Pending Reason:</span> {task.pendingReason}</p>}
                               {task.rejectReason && <p className="text-red-600 dark:text-red-400"><span className="font-medium">Reject Reason:</span> {task.rejectReason}</p>}
+                              {task.attachmentUrl && <p className="text-blue-600 dark:text-blue-400"><span className="font-medium">Attachment:</span> <a href={task.attachmentUrl} target="_blank" rel="noopener noreferrer" className="underline">View</a></p>}
+                              {task.completedAttachmentUrl && <p className="text-green-600 dark:text-green-400"><span className="font-medium">Completion Attachment:</span> <a href={task.completedAttachmentUrl} target="_blank" rel="noopener noreferrer" className="underline">View</a></p>}
                             </div>
                           )}
                         </td>
@@ -327,61 +432,6 @@ export default function AdminPage() {
               </div>
             )}
           </>
-        ) : tab === "users" ? (
-          <div className="space-y-4">
-            {users.map((u) => (
-              <div key={u.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center justify-between">
-                <div>
-                  <p className="font-medium dark:text-white">{u.username} {u.isMaster && <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 px-2 py-0.5 rounded-full ml-1">Master</span>}</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{u.email}</p>
-                  <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full ${u.role === "ADMIN" ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300" : "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300"}`}>{u.role}</span>
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={() => { setEditingUser(u); setUserForm({ username: u.username, email: u.email, password: "", role: u.role, isMaster: u.isMaster || false }); setShowUserForm(true); }} className="text-sm text-indigo-600 hover:text-indigo-800">Edit</button>
-                  <button onClick={() => handleDeleteUser(u.id)} className="text-sm text-red-600 hover:text-red-800">Delete</button>
-                </div>
-              </div>
-            ))}
-            {users.length === 0 && <p className="text-gray-500 dark:text-gray-400 text-center py-8">No users yet.</p>}
-          </div>
-        ) : tab === "sites" ? (
-          <div>
-            <div className="flex gap-2 mb-6">
-              <input type="text" value={newSite} onChange={(e) => setNewSite(e.target.value)} placeholder="New site name..." className="flex-1 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" onKeyDown={(e) => e.key === "Enter" && handleAddSite()} />
-              <button onClick={handleAddSite} className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">Add Site</button>
-            </div>
-            <div className="space-y-2">
-              {sites.map((site) => (
-                <div key={site.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center justify-between">
-                  <div>
-                    <p className="font-medium dark:text-white">{site.name}</p>
-                    <p className="text-xs text-gray-400">Created: {new Date(site.createdAt).toLocaleDateString()}</p>
-                  </div>
-                  <button onClick={() => handleDeleteSite(site.id)} className="text-sm text-red-600 hover:text-red-800">Delete</button>
-                </div>
-              ))}
-              {sites.length === 0 && <p className="text-gray-500 dark:text-gray-400 text-center py-8">No sites yet. Add one above.</p>}
-            </div>
-          </div>
-        ) : (
-          <div>
-            <div className="flex gap-2 mb-6">
-              <input type="text" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="New category name..." className="flex-1 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" onKeyDown={(e) => e.key === "Enter" && handleAddCategory()} />
-              <button onClick={handleAddCategory} className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">Add Category</button>
-            </div>
-            <div className="space-y-2">
-              {categories.map((cat) => (
-                <div key={cat.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center justify-between">
-                  <div>
-                    <p className="font-medium dark:text-white">{cat.name}</p>
-                    <p className="text-xs text-gray-400">Created: {new Date(cat.createdAt).toLocaleDateString()}</p>
-                  </div>
-                  <button onClick={() => handleDeleteCategory(cat.id)} className="text-sm text-red-600 hover:text-red-800">Delete</button>
-                </div>
-              ))}
-              {categories.length === 0 && <p className="text-gray-500 dark:text-gray-400 text-center py-8">No categories yet. Add one above.</p>}
-            </div>
-          </div>
         )}
       </div>
     </div>

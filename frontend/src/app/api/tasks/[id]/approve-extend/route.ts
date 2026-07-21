@@ -29,6 +29,15 @@ export async function POST(
     const snapshot = await get(taskRef);
     if (!snapshot.exists()) return NextResponse.json({ error: "Task not found" }, { status: 404 });
     const task = snapshot.val();
+
+    const userSnapshot = await get(ref(db, `users/${user.id}`));
+    const userData = userSnapshot.exists() ? userSnapshot.val() : null;
+    const isMaster = userData?.isMaster === true;
+
+    if (task.createdById !== user.id && !isMaster) {
+      return NextResponse.json({ error: "Only the admin who assigned this task can approve extensions" }, { status: 403 });
+    }
+
     if (task.extendStatus !== "PENDING")
       return NextResponse.json({ error: "No pending extension request" }, { status: 400 });
 

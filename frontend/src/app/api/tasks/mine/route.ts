@@ -34,6 +34,7 @@ export async function GET(request: Request) {
         assignedToUsers: assignedToIds
           .map((uid: string) => (users[uid] ? { id: uid, username: users[uid].username } : null))
           .filter(Boolean),
+        assignedByName: users[task.createdById] ? users[task.createdById].username : null,
       };
     });
 

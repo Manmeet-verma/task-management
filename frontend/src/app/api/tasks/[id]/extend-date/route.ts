@@ -32,7 +32,8 @@ export async function POST(
     if (!snapshot.exists()) return NextResponse.json({ error: "Task not found" }, { status: 404 });
     const task = snapshot.val();
     if (task.assignedToId !== user.id && !(task.assignedToIds || []).includes(user.id)) return NextResponse.json({ error: "Not your task" }, { status: 403 });
-    if (task.locked) return NextResponse.json({ error: "Task is locked" }, { status: 400 });
+    if (task.locked || task.status === "LOCKED") return NextResponse.json({ error: "Task is locked" }, { status: 400 });
+    if (task.status === "COMPLETED") return NextResponse.json({ error: "Cannot request extension on completed task" }, { status: 400 });
     if (!newDeadline) return NextResponse.json({ error: "New deadline is required" }, { status: 400 });
 
     await update(taskRef, {

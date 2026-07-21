@@ -1,7 +1,7 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const bcrypt = require('bcryptjs');
 const { initializeApp } = require('firebase/app');
-const { getDatabase, ref, set, get, push } = require('firebase/database');
+const { getDatabase, ref, set, get, remove } = require('firebase/database');
 
 const firebaseConfig = {
   apiKey: process.env.FIREBASE_API_KEY,
@@ -17,14 +17,24 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
 async function main() {
+  console.log('Clearing old data...');
+
+  await remove(ref(db, 'users'));
+  await remove(ref(db, 'emailIndex'));
+  await remove(ref(db, 'usernameIndex'));
+  await remove(ref(db, 'tasks'));
+  await remove(ref(db, 'submissions'));
+  await remove(ref(db, 'notifications'));
+
+  console.log('Old data cleared.');
+
+  const superAdminPassword = await bcrypt.hash('super123', 10);
   const adminPassword = await bcrypt.hash('admin123', 10);
   const userPassword = await bcrypt.hash('user123', 10);
-  const superAdminPassword = await bcrypt.hash('super123', 10);
 
-  // Create Super Admin
-  const superAdminRef = push(ref(db, 'users'));
-  const superAdminId = superAdminRef.key;
-  await set(superAdminRef, {
+  // Super Admin
+  const superAdminId = 'super-admin-001';
+  await set(ref(db, `users/${superAdminId}`), {
     id: superAdminId,
     username: 'superadmin',
     email: 'super@example.com',
@@ -33,11 +43,12 @@ async function main() {
     isMaster: true,
     createdAt: new Date().toISOString(),
   });
+  await set(ref(db, 'emailIndex/super@example,com'), { userId: superAdminId, email: 'super@example.com' });
+  await set(ref(db, 'usernameIndex/superadmin'), { userId: superAdminId, username: 'superadmin' });
 
-  // Create Admin
-  const adminRef = push(ref(db, 'users'));
-  const adminId = adminRef.key;
-  await set(adminRef, {
+  // Admin
+  const adminId = 'admin-001';
+  await set(ref(db, `users/${adminId}`), {
     id: adminId,
     username: 'admin',
     email: 'admin@example.com',
@@ -46,11 +57,12 @@ async function main() {
     isMaster: false,
     createdAt: new Date().toISOString(),
   });
+  await set(ref(db, 'emailIndex/admin@example,com'), { userId: adminId, email: 'admin@example.com' });
+  await set(ref(db, 'usernameIndex/admin'), { userId: adminId, username: 'admin' });
 
-  // Create User
-  const userRef = push(ref(db, 'users'));
-  const userId = userRef.key;
-  await set(userRef, {
+  // User
+  const userId = 'user-001';
+  await set(ref(db, `users/${userId}`), {
     id: userId,
     username: 'user',
     email: 'user@example.com',
@@ -58,21 +70,13 @@ async function main() {
     role: 'USER',
     createdAt: new Date().toISOString(),
   });
-
-  // Email indexes
-  await set(ref(db, `emailIndex/super@example.com`.replace(/\./g, ',')), { userId: superAdminId, email: 'super@example.com' });
-  await set(ref(db, `emailIndex/admin@example.com`.replace(/\./g, ',')), { userId: adminId, email: 'admin@example.com' });
-  await set(ref(db, `emailIndex/user@example.com`.replace(/\./g, ',')), { userId: userId, email: 'user@example.com' });
-
-  // Username indexes
-  await set(ref(db, 'usernameIndex/superadmin'), { userId: superAdminId, username: 'superadmin' });
-  await set(ref(db, 'usernameIndex/admin'), { userId: adminId, username: 'admin' });
+  await set(ref(db, 'emailIndex/user@example,com'), { userId: userId, email: 'user@example.com' });
   await set(ref(db, 'usernameIndex/user'), { userId: userId, username: 'user' });
 
   // Sample tasks
-  const task1Ref = push(ref(db, 'tasks'));
+  const task1Ref = ref(db, 'tasks/task-001');
   await set(task1Ref, {
-    id: task1Ref.key,
+    id: 'task-001',
     name: 'Design Landing Page',
     category: 'Design',
     siteProject: 'Company Website',
@@ -82,31 +86,35 @@ async function main() {
     status: 'AVAILABLE',
     extensionCount: 0,
     locked: false,
+    assignedToIds: [],
     createdById: adminId,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   });
 
-  const task2Ref = push(ref(db, 'tasks'));
+  const task2Ref = ref(db, 'tasks/task-002');
   await set(task2Ref, {
-    id: task2Ref.key,
+    id: 'task-002',
     name: 'Fix Login Bug',
     category: 'Development',
     siteProject: 'Web App',
     deadline: new Date('2026-07-20').toISOString(),
     priority: 'HIGH',
     description: 'Users cannot login with Google OAuth',
-    status: 'AVAILABLE',
+    status: 'ASSIGNED',
     extensionCount: 0,
     locked: false,
+    assignedToId: userId,
+    assignedToIds: [userId],
+    assignedByName: 'superadmin',
     createdById: superAdminId,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   });
 
-  const task3Ref = push(ref(db, 'tasks'));
+  const task3Ref = ref(db, 'tasks/task-003');
   await set(task3Ref, {
-    id: task3Ref.key,
+    id: 'task-003',
     name: 'Write API Documentation',
     category: 'Documentation',
     siteProject: 'API v2',
@@ -116,15 +124,15 @@ async function main() {
     status: 'AVAILABLE',
     extensionCount: 0,
     locked: false,
+    assignedToIds: [],
     createdById: adminId,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   });
 
-  console.log('Seed data created successfully!');
   console.log('');
   console.log('=========================================');
-  console.log('       DEMO CREDENTIALS');
+  console.log('   DATABASE RESET COMPLETE');
   console.log('=========================================');
   console.log('Super Admin: super@example.com / super123');
   console.log('Admin:       admin@example.com / admin123');

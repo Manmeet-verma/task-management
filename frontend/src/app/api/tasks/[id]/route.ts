@@ -43,6 +43,7 @@ export async function GET(
       createdBy: users[task.createdById] ? { id: task.createdById, username: users[task.createdById].username } : null,
       assignedTo: task.assignedToId && users[task.assignedToId] ? { id: task.assignedToId, username: users[task.assignedToId].username } : null,
       assignedToUsers,
+      assignedByName: users[task.createdById] ? users[task.createdById].username : null,
       submissions,
     });
   } catch (err: any) {
@@ -63,6 +64,15 @@ export async function PUT(
     const taskRef = ref(db, `tasks/${id}`);
     const snapshot = await get(taskRef);
     if (!snapshot.exists()) return NextResponse.json({ error: "Task not found" }, { status: 404 });
+
+    const task = snapshot.val();
+    const userSnapshot = await get(ref(db, `users/${user.id}`));
+    const userData = userSnapshot.exists() ? userSnapshot.val() : null;
+    const isMaster = userData?.isMaster === true;
+
+    if (task.createdById !== user.id && !isMaster) {
+      return NextResponse.json({ error: "Only the admin who assigned this task can edit it" }, { status: 403 });
+    }
 
     const body = await request.json();
     const updates: Record<string, any> = { updatedAt: new Date().toISOString() };

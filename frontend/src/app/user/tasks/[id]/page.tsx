@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter, useParams } from "next/navigation";
 import { api, type Task, type Submission } from "@/lib/api";
@@ -24,6 +24,10 @@ export default function TaskDetailPage() {
   const [completing, setCompleting] = useState(false);
   const [pendingSubmitting, setPendingSubmitting] = useState(false);
   const [extendSubmitting, setExtendSubmitting] = useState(false);
+  const [completeFile, setCompleteFile] = useState<File | null>(null);
+  const [completeFilePreview, setCompleteFilePreview] = useState<string>("");
+  const completeFileInputRef = useRef<HTMLInputElement>(null);
+  const completeCameraInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!loading && (!user || user.role !== "USER")) router.replace("/login");
@@ -41,13 +45,33 @@ export default function TaskDetailPage() {
     } catch (err) { console.error(err); }
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setCompleteFile(file);
+      const reader = new FileReader();
+      reader.onload = (ev) => setCompleteFilePreview(ev.target?.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleComplete = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!completeRemarks.trim()) { alert("Please provide remarks"); return; }
     setCompleting(true);
     try {
-      await api.tasks.complete(taskId, completeRemarks.trim());
+      if (completeFile) {
+        const formData = new FormData();
+        formData.append("remarks", completeRemarks.trim());
+        formData.append("file", completeFile);
+        await api.submissions.submit(taskId, formData);
+        await api.tasks.complete(taskId, completeRemarks.trim());
+      } else {
+        await api.tasks.complete(taskId, completeRemarks.trim());
+      }
       setCompleteRemarks("");
+      setCompleteFile(null);
+      setCompleteFilePreview("");
       setShowCompleteForm(false);
       loadTask();
     } catch (err) { console.error(err); }
@@ -91,18 +115,21 @@ export default function TaskDetailPage() {
             <p><span className="font-medium">Deadline:</span> {new Date(task.deadline).toLocaleDateString()}</p>
             {task.userDeadline && <p><span className="font-medium">Your Deadline:</span> {new Date(task.userDeadline).toLocaleDateString()}</p>}
             <p><span className="font-medium">Priority:</span> {task.priority}</p>
-            {task.assignedToUsers && task.assignedToUsers.length > 0 && (
-              <p><span className="font-medium">Assigned:</span> {task.assignedToUsers.map(u => u.username).join(", ")}</p>
-            )}
+            <p className="text-indigo-600 dark:text-indigo-400"><span className="font-medium">Assigned By:</span> {task.assignedByName || task.createdBy?.username || "Unknown"}</p>
             {task.extensionCount > 0 && <p className="text-red-600 dark:text-red-400"><span className="font-medium">Extensions:</span> {task.extensionCount}</p>}
           </div>
           {task.description && <p className="text-gray-700 dark:text-gray-300">{task.description}</p>}
+          {task.attachmentUrl && (
+            <div className="mt-4">
+              <a href={task.attachmentUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 dark:text-blue-400 underline">View Task Attachment</a>
+            </div>
+          )}
         </div>
 
         {task.locked && (
           <div className="bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 p-6 mb-6">
             <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300">Task Locked</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">This task is locked. No further actions allowed.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">This task has been approved and locked by admin. No further actions allowed.</p>
           </div>
         )}
 
@@ -134,6 +161,27 @@ export default function TaskDetailPage() {
                 <p className="text-sm text-green-600 dark:text-green-400 italic">{task.completedRemarks}</p>
               </div>
             )}
+            {task.completedAttachmentUrl && (
+              <div className="mt-2">
+                <a href={task.completedAttachmentUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-green-600 dark:text-green-400 underline">View Completion Attachment</a>
+              </div>
+            )}
+          </div>
+        )}
+
+        {task.extendStatus === "PENDING" && (
+          <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800 p-6 mb-6">
+            <h2 className="text-lg font-semibold text-orange-800 dark:text-orange-300">Extension Request Pending</h2>
+            <p className="text-sm text-orange-700 dark:text-orange-400">Waiting for admin to approve your extension request.</p>
+            {task.extendReason && <p className="text-sm text-orange-600 dark:text-orange-400 mt-1 italic">Reason: {task.extendReason}</p>}
+          </div>
+        )}
+
+        {task.extendStatus === "REJECTED" && (
+          <div className="bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800 p-6 mb-6">
+            <h2 className="text-lg font-semibold text-red-800 dark:text-red-300">Extension Rejected</h2>
+            <p className="text-sm text-red-700 dark:text-red-400">Your extension request was rejected by {task.extRejectedBy || "Admin"}.</p>
+            {task.extRejectReason && <p className="text-sm text-red-600 dark:text-red-400 mt-1 italic">Reason: {task.extRejectReason}</p>}
           </div>
         )}
 
@@ -158,11 +206,35 @@ export default function TaskDetailPage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-green-200 dark:border-green-800 p-6 mb-6">
             <form onSubmit={handleComplete} className="space-y-4">
               <h2 className="text-lg font-semibold dark:text-white">Complete Task</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Please provide remarks about the action you have taken on this task.</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Please provide remarks and optionally attach a file (PDF/JPEG or camera photo).</p>
               <textarea value={completeRemarks} onChange={(e) => setCompleteRemarks(e.target.value)} rows={4} className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Describe what you did to complete this task..." required />
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Attach File (optional)</label>
+                <div className="flex gap-2">
+                  <input ref={completeFileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileSelect} className="hidden" />
+                  <button type="button" onClick={() => completeFileInputRef.current?.click()} className="bg-blue-500 text-white px-3 py-2 rounded-md hover:bg-blue-600 text-sm">
+                    Upload PDF/Image
+                  </button>
+                  <input ref={completeCameraInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileSelect} className="hidden" />
+                  <button type="button" onClick={() => completeCameraInputRef.current?.click()} className="bg-purple-500 text-white px-3 py-2 rounded-md hover:bg-purple-600 text-sm">
+                    Camera
+                  </button>
+                </div>
+                {completeFile && (
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Selected: {completeFile.name}</p>
+                    {completeFilePreview && completeFile.type.startsWith("image/") && (
+                      <img src={completeFilePreview} alt="Preview" className="mt-2 max-h-32 rounded border border-gray-200 dark:border-gray-700" />
+                    )}
+                    <button type="button" onClick={() => { setCompleteFile(null); setCompleteFilePreview(""); }} className="text-xs text-red-600 hover:underline mt-1">Remove</button>
+                  </div>
+                )}
+              </div>
+
               <div className="flex gap-2">
                 <button type="submit" disabled={completing} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-50">{completing ? "Completing..." : "Submit & Complete"}</button>
-                <button type="button" onClick={() => { setShowCompleteForm(false); setCompleteRemarks(""); }} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">Cancel</button>
+                <button type="button" onClick={() => { setShowCompleteForm(false); setCompleteRemarks(""); setCompleteFile(null); setCompleteFilePreview(""); }} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">Cancel</button>
               </div>
             </form>
           </div>
@@ -216,6 +288,9 @@ export default function TaskDetailPage() {
                   {sub.comments && <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">{sub.comments}</p>}
                   {sub.adminComments && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 italic">Admin: {sub.adminComments}</p>}
                   {sub.pendingReason && <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-1 italic">Reason: {sub.pendingReason}</p>}
+                  {sub.reportUrl && (
+                    <a href={sub.reportUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 dark:text-blue-400 underline mt-1 inline-block">View Attachment</a>
+                  )}
                 </div>
               ))}
             </div>

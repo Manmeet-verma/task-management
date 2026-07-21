@@ -39,6 +39,11 @@ export const api = {
         body: { username, email, password },
       }),
     me: () => request<User>("/auth/me"),
+    changePassword: (currentPassword: string, newPassword: string) =>
+      request<{ message: string }>("/auth/change-password", {
+        method: "POST",
+        body: { currentPassword, newPassword },
+      }),
   },
   tasks: {
     getAll: () => request<Task[]>("/tasks"),
@@ -69,12 +74,12 @@ export const api = {
       request<Task>(`/tasks/${id}/extend-date`, { method: "POST", body: { newDeadline, reason } }),
     approveExtend: (id: string) =>
       request<Task>(`/tasks/${id}/approve-extend`, { method: "POST" }),
-    rejectExtend: (id: string) =>
-      request<Task>(`/tasks/${id}/reject-extend`, { method: "POST" }),
+    rejectExtend: (id: string, reason?: string) =>
+      request<Task>(`/tasks/${id}/reject-extend`, { method: "POST", body: { reason } }),
     lock: (id: string) =>
       request<Task>(`/tasks/${id}/lock`, { method: "POST" }),
-    reassign: (id: string, assignedToId: string) =>
-      request<Task>(`/tasks/${id}/reassign`, { method: "POST", body: { assignedToId } }),
+    reassign: (id: string, assignedToId: string, reason?: string) =>
+      request<Task>(`/tasks/${id}/reassign`, { method: "POST", body: { assignedToId, reason } }),
     getStats: () => request<DashboardStats>("/tasks/stats"),
   },
   submissions: {
@@ -156,6 +161,15 @@ export interface Task {
   assignedToIds?: string[];
   assignedToUsers?: { id: string; username: string }[];
   submissions?: Submission[];
+  reassignReason?: string;
+  reassignedBy?: string;
+  assignedByName?: string;
+  attachmentUrl?: string;
+  attachmentType?: string;
+  completedAttachmentUrl?: string;
+  completedAttachmentType?: string;
+  extRejectReason?: string;
+  extRejectedBy?: string;
 }
 
 export interface Submission {

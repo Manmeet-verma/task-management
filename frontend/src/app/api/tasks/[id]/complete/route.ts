@@ -24,8 +24,27 @@ export async function POST(
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { id } = await params;
-    const body = await request.json();
-    const { remarks } = body;
+    const contentType = request.headers.get("content-type") || "";
+    let remarks = "";
+    let attachmentUrl = "";
+    let attachmentType = "";
+
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await request.formData();
+      remarks = (formData.get("remarks") as string) || "";
+      const file = formData.get("file") as File | null;
+      if (file && file.size > 0) {
+        const bytes = await file.arrayBuffer();
+        const base64 = Buffer.from(bytes).toString("base64");
+        attachmentUrl = `data:${file.type};base64,${base64}`;
+        attachmentType = file.type;
+      }
+    } else {
+      const body = await request.json();
+      remarks = body.remarks || "";
+      attachmentUrl = body.attachmentUrl || "";
+      attachmentType = body.attachmentType || "";
+    }
 
     if (!remarks || !remarks.trim()) {
       return NextResponse.json({ error: "Remarks are required" }, { status: 400 });
@@ -43,15 +62,22 @@ export async function POST(
     const adminSnapshot = await get(ref(db, `users/${task.createdById}`));
     const adminName = adminSnapshot.exists() ? adminSnapshot.val().username : "Admin";
 
-    await update(taskRef, {
+    const updateData: Record<string, any> = {
       status: "COMPLETED",
       completedRemarks: remarks.trim(),
       completedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-    });
+    };
+
+    if (attachmentUrl) {
+      updateData.completedAttachmentUrl = attachmentUrl;
+      updateData.completedAttachmentType = attachmentType;
+    }
+
+    await update(taskRef, updateData);
     await createNotification(
       task.createdById,
-      `${user.username} has completed the job "${task.name}" but needs intention of ${adminName}. Remarks: "${remarks.trim()}"`,
+      `${user.username} has completed the job "${task.name}". Remarks: "${remarks.trim()}"`,
       "COMPLETED",
       id
     );
