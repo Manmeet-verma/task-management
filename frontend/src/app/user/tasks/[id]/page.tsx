@@ -29,12 +29,18 @@ export default function TaskDetailPage() {
   const completeFileInputRef = useRef<HTMLInputElement>(null);
   const completeCameraInputRef = useRef<HTMLInputElement>(null);
 
+  const [reassigning, setReassigning] = useState(false);
+  const [reassignUserId, setReassignUserId] = useState("");
+  const [reassignReason, setReassignReason] = useState("");
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+
   useEffect(() => {
     if (!loading && (!user || user.role !== "USER")) router.replace("/login");
   }, [user, loading, router]);
 
   useEffect(() => {
     if (taskId && user) loadTask();
+    if (user) api.users.getAll().then(setAllUsers).catch(() => {});
   }, [taskId, user]);
 
   const loadTask = async () => {
@@ -92,6 +98,36 @@ export default function TaskDetailPage() {
     setExtendSubmitting(true);
     try { await api.tasks.extendDate(taskId, extendDeadline, extendReason); setExtendDeadline(""); setExtendReason(""); setShowExtendForm(false); loadTask(); } catch (err) { console.error(err); }
     finally { setExtendSubmitting(false); }
+  };
+
+  const canManage = user && task && task.createdById === user.id && task.assignedToId !== user.id;
+
+  const handleApproveComplete = async () => {
+    try { await api.tasks.approveComplete(taskId); loadTask(); } catch (err) { console.error(err); }
+  };
+
+  const handleApproveExtend = async () => {
+    try { await api.tasks.approveExtend(taskId); loadTask(); } catch (err) { console.error(err); }
+  };
+
+  const [rejectExtendReason, setRejectExtendReason] = useState("");
+  const handleRejectExtend = async () => {
+    try { await api.tasks.rejectExtend(taskId, rejectExtendReason); setRejectExtendReason(""); loadTask(); } catch (err) { console.error(err); }
+  };
+
+  const handleLock = async () => {
+    if (!confirm("Lock this task?")) return;
+    try { await api.tasks.lock(taskId); loadTask(); } catch (err) { console.error(err); }
+  };
+
+  const handleReassign = async () => {
+    if (!reassignUserId || !reassignReason.trim()) return;
+    try { await api.tasks.reassign(taskId, reassignUserId, reassignReason.trim()); setReassigning(false); setReassignUserId(""); setReassignReason(""); loadTask(); } catch (err) { console.error(err); }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm("Delete this task?")) return;
+    try { await api.tasks.delete(taskId); router.push("/user"); } catch (err) { console.error(err); }
   };
 
   if (loading || !user || !task) return null;
@@ -185,7 +221,7 @@ export default function TaskDetailPage() {
           </div>
         )}
 
-        {canAct && (
+        {canAct && task.assignedToId === user?.id && (
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
             <h2 className="text-lg font-semibold mb-4 dark:text-white">Take Action</h2>
             <div className="grid grid-cols-3 gap-4">
@@ -199,6 +235,53 @@ export default function TaskDetailPage() {
                 Pending
               </button>
             </div>
+          </div>
+        )}
+
+        {canManage && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-indigo-200 dark:border-indigo-800 p-6 mb-6">
+            <h2 className="text-lg font-semibold mb-4 dark:text-white">Task Creator Actions</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">You created this task. Manage it below.</p>
+            <div className="flex flex-wrap gap-2">
+              {task.status === "COMPLETED" && !task.locked && (
+                <button onClick={handleApproveComplete} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm font-medium">Accept & Lock</button>
+              )}
+              {task.extendStatus === "PENDING" && (
+                <>
+                  <button onClick={handleApproveExtend} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm font-medium">Accept Extension</button>
+                  <button onClick={() => setRejectExtendReason("-")} className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 text-sm font-medium">Reject Extension</button>
+                </>
+              )}
+              {!task.locked && task.status !== "LOCKED" && task.status !== "COMPLETED" && (
+                <button onClick={handleLock} className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 text-sm font-medium">Lock</button>
+              )}
+              {!task.locked && task.status !== "LOCKED" && task.status !== "COMPLETED" && (
+                <button onClick={() => setReassigning(!reassigning)} className="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600 text-sm font-medium">Reassign</button>
+              )}
+              <button onClick={handleDelete} className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 text-sm font-medium">Delete</button>
+            </div>
+            {rejectExtendReason === "-" && (
+              <div className="mt-3 flex gap-2">
+                <input type="text" value={rejectExtendReason === "-" ? "" : rejectExtendReason} onChange={(e) => setRejectExtendReason(e.target.value)} placeholder="Rejection reason (optional)" className="flex-1 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white text-sm" />
+                <button onClick={handleRejectExtend} className="bg-red-600 text-white px-3 py-2 rounded-md hover:bg-red-700 text-sm">Confirm</button>
+                <button onClick={() => setRejectExtendReason("")} className="bg-gray-200 dark:bg-gray-700 px-3 py-2 rounded-md text-sm">Cancel</button>
+              </div>
+            )}
+            {reassigning && (
+              <div className="mt-3 space-y-2">
+                <select value={reassignUserId} onChange={(e) => setReassignUserId(e.target.value)} className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white text-sm">
+                  <option value="">Select user</option>
+                  {allUsers.map((u: any) => (
+                    <option key={u.id} value={u.id}>{u.username} ({u.role})</option>
+                  ))}
+                </select>
+                <input type="text" value={reassignReason} onChange={(e) => setReassignReason(e.target.value)} placeholder="Reassignment reason *" className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white text-sm" />
+                <div className="flex gap-2">
+                  <button onClick={handleReassign} disabled={!reassignUserId || !reassignReason.trim()} className="bg-orange-500 text-white px-3 py-2 rounded-md hover:bg-orange-600 text-sm disabled:opacity-50">Confirm Reassign</button>
+                  <button onClick={() => { setReassigning(false); setReassignUserId(""); setReassignReason(""); }} className="bg-gray-200 dark:bg-gray-700 px-3 py-2 rounded-md text-sm">Cancel</button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

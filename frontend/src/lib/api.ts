@@ -106,6 +106,9 @@ export const api = {
     deleteUser: (id: string) =>
       request<{ message: string }>(`/admin/users/${id}`, { method: "DELETE" }),
   },
+  users: {
+    getAll: () => request<User[]>("/users"),
+  },
   categories: {
     getAll: () => request<Category[]>("/categories"),
     create: (name: string) =>

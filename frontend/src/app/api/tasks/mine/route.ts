@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     const tasksData = snapshot.val() as Record<string, any>;
     const tasks = Object.values(tasksData).filter((t: any) => {
       const assignedToIds = t.assignedToIds || [];
-      return t.assignedToId === user.id || assignedToIds.includes(user.id);
+      return t.assignedToId === user.id || assignedToIds.includes(user.id) || t.createdById === user.id;
     });
 
     const usersSnapshot = await get(ref(db, "users"));

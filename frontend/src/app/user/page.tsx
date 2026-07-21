@@ -13,7 +13,7 @@ export default function UserPage() {
   const router = useRouter();
   const [myTasks, setMyTasks] = useState<Task[]>([]);
   const [loadingData, setLoadingData] = useState(true);
-  const [tab, setTab] = useState<"all" | "completed" | "pending" | "reassigned" | "extension">("all");
+  const [tab, setTab] = useState<"all" | "assigned" | "created" | "completed" | "pending" | "reassigned" | "extension">("all");
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -66,12 +66,16 @@ export default function UserPage() {
     }
   };
 
+  const assignedToMeTasks = myTasks.filter((t) => t.assignedToId === user?.id);
+  const createdByMeTasks = myTasks.filter((t) => t.createdById === user?.id);
   const completedTasks = myTasks.filter((t) => t.status === "COMPLETED" || t.status === "LOCKED");
   const pendingTasks = myTasks.filter((t) => t.status === "PENDING" || t.extendStatus === "PENDING");
   const reassignedTasks = myTasks.filter((t) => t.reassignReason);
   const extensionTasks = myTasks.filter((t) => t.extendStatus === "PENDING" || t.extendStatus === "APPROVED" || t.extendStatus === "REJECTED");
 
   const filteredTasks = myTasks.filter((t) => {
+    if (tab === "assigned") return t.assignedToId === user?.id;
+    if (tab === "created") return t.createdById === user?.id;
     if (tab === "completed") return t.status === "COMPLETED" || t.status === "LOCKED";
     if (tab === "pending") return t.status === "PENDING" || t.extendStatus === "PENDING";
     if (tab === "reassigned") return !!t.reassignReason;
@@ -87,6 +91,12 @@ export default function UserPage() {
     return "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800";
   };
 
+  const canManageTask = (task: Task) => {
+    if (!user) return false;
+    if (user.isMaster) return true;
+    return task.createdById === user.id;
+  };
+
   if (loading || !user) return null;
 
   return (
@@ -95,7 +105,10 @@ export default function UserPage() {
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold dark:text-white">My Tasks ({myTasks.length})</h1>
-          <button onClick={() => setShowChangePassword(true)} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 text-sm">Change Password</button>
+          <div className="flex gap-2">
+            <Link href="/tasks/new" className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">+ Create Task</Link>
+            <button onClick={() => setShowChangePassword(true)} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 text-sm">Change Password</button>
+          </div>
         </div>
 
         {showChangePassword && (
@@ -127,6 +140,8 @@ export default function UserPage() {
         <div className="flex gap-4 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
           {[
             { key: "all" as const, label: "All", count: myTasks.length },
+            { key: "assigned" as const, label: "Assigned to Me", count: assignedToMeTasks.length },
+            { key: "created" as const, label: "Created by Me", count: createdByMeTasks.length },
             { key: "completed" as const, label: "Completed", count: completedTasks.length },
             { key: "pending" as const, label: "Pending", count: pendingTasks.length },
             { key: "reassigned" as const, label: "Reassigned", count: reassignedTasks.length },
@@ -155,7 +170,10 @@ export default function UserPage() {
                   <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1 mb-4">
                     <p>Category: {task.category}</p>
                     <p>Site: {task.siteProject}</p>
-                    <p className="text-indigo-600 dark:text-indigo-400">Assigned By: {task.assignedByName || task.createdBy?.username || "Unknown"}</p>
+                    <p className="text-indigo-600 dark:text-indigo-400">Assigned By: {task.createdById === user?.id ? "You" : (task.assignedByName || task.createdBy?.username || "Unknown")}</p>
+                    {task.createdById === user?.id && task.assignedTo && (
+                      <p className="text-blue-600 dark:text-blue-400">Assigned To: {task.assignedTo.username}</p>
+                    )}
                     <p>Deadline: {new Date(task.deadline).toLocaleDateString()}</p>
                     {task.userDeadline && <p>Your Deadline: {new Date(task.userDeadline).toLocaleDateString()}</p>}
                     {task.extensionCount > 0 && <p className="text-red-600 dark:text-red-400">Extensions: {task.extensionCount}</p>}
@@ -229,10 +247,13 @@ export default function UserPage() {
                     </div>
                   )}
 
-                  {canAct && (
+                  {canAct && task.assignedToId === user?.id && (
                     <Link href={`/user/tasks/${task.id}`} className="block w-full text-center bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm font-medium">
                       Open Task
                     </Link>
+                  )}
+                  {task.createdById === user?.id && task.assignedToId !== user?.id && (
+                    <div className="text-center text-xs text-gray-500 dark:text-gray-400 italic py-2">You created this task</div>
                   )}
                 </div>
               );

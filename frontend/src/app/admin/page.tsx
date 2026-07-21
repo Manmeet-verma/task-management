@@ -21,7 +21,7 @@ export default function AdminPage() {
   const [filterStatus, setFilterStatus] = useState("");
   const [page, setPage] = useState(1);
   const perPage = 10;
-  const [tab, setTab] = useState<"all" | "completed" | "pending" | "reassigned" | "extension" | "users" | "categories" | "sites">("all");
+  const [tab, setTab] = useState<"all" | "created" | "assigned" | "completed" | "pending" | "reassigned" | "extension" | "users" | "categories" | "sites">("all");
   const [reassigningId, setReassigningId] = useState<string | null>(null);
   const [reassignUserId, setReassignUserId] = useState("");
   const [reassignReason, setReassignReason] = useState("");
@@ -159,7 +159,9 @@ export default function AdminPage() {
   const filteredTasks = tasks.filter((t) => {
     const matchSearch = !search || t.name.toLowerCase().includes(search.toLowerCase()) || (t.assignedTo?.username || "").toLowerCase().includes(search.toLowerCase()) || (t.siteProject || "").toLowerCase().includes(search.toLowerCase());
     let matchTab = true;
-    if (tab === "completed") matchTab = t.status === "COMPLETED" || t.status === "LOCKED";
+    if (tab === "created") matchTab = t.createdById === user?.id;
+    else if (tab === "assigned") matchTab = t.assignedToId === user?.id;
+    else if (tab === "completed") matchTab = t.status === "COMPLETED" || t.status === "LOCKED";
     else if (tab === "pending") matchTab = t.status === "PENDING" || t.extendStatus === "PENDING";
     else if (tab === "reassigned") matchTab = !!t.reassignReason;
     else if (tab === "extension") matchTab = t.extendStatus === "PENDING" || t.extendStatus === "APPROVED" || t.extendStatus === "REJECTED";
@@ -186,7 +188,7 @@ export default function AdminPage() {
             {tab === "users" ? (
               <button onClick={() => { setEditingUser(null); setUserForm({ username: "", email: "", password: "", role: "USER", isMaster: false }); setShowUserForm(true); }} className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">+ New User</button>
             ) : tab === "categories" || tab === "sites" ? null : (
-              <Link href="/admin/tasks/new" className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">+ New Task</Link>
+              <Link href="/tasks/new" className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">+ New Task</Link>
             )}
           </div>
         </div>
@@ -194,6 +196,8 @@ export default function AdminPage() {
         <div className="flex gap-4 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
           {[
             { key: "all" as const, label: "All", count: tasks.length },
+            { key: "created" as const, label: "My Tasks", count: tasks.filter((t) => t.createdById === user?.id).length },
+            { key: "assigned" as const, label: "Assigned to Me", count: tasks.filter((t) => t.assignedToId === user?.id).length },
             { key: "completed" as const, label: "Completed", count: completedTasks.length + lockedTasks.length },
             { key: "pending" as const, label: "Pending", count: pendingTasks.length },
             { key: "reassigned" as const, label: "Reassigned", count: reassignedTasks.length },
