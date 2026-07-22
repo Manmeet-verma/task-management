@@ -3,17 +3,20 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
-import { api, type Task } from "@/lib/api";
+import { api, type Task, type Site, type DashboardStats } from "@/lib/api";
 import Navbar from "@/components/Navbar";
 import StatusBadge from "@/components/StatusBadge";
 import Link from "next/link";
+import { openAttachment } from "@/lib/attachment";
 
 export default function UserPage() {
   const { user, loading, logout } = useAuth();
   const router = useRouter();
   const [myTasks, setMyTasks] = useState<Task[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loadingData, setLoadingData] = useState(true);
-  const [tab, setTab] = useState<"all" | "assigned" | "created" | "completed" | "pending" | "reassigned" | "extension">("all");
+  const [tab, setTab] = useState<"all" | "assigned" | "created" | "completed" | "pending" | "reassigned" | "extension" | "sites">("all");
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -33,8 +36,12 @@ export default function UserPage() {
   const loadData = async () => {
     setLoadingData(true);
     try {
-      const t = await api.tasks.getMine();
+      const [t, s, st] = await Promise.all([
+        api.tasks.getMine(), api.tasks.getStats(), api.sites.getAll()
+      ]);
       setMyTasks(t);
+      setStats(s);
+      setSites(st);
     } catch (err) { console.error(err); }
     finally { setLoadingData(false); }
   };
@@ -111,6 +118,27 @@ export default function UserPage() {
           </div>
         </div>
 
+        {stats && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total Tasks</p>
+              <p className="text-2xl font-bold dark:text-white">{stats.totalTasks}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">In Progress</p>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.inProgressTasks}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Completed</p>
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.completedTasks}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Pending</p>
+              <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{stats.pendingTasks}</p>
+            </div>
+          </div>
+        )}
+
         {showChangePassword && (
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-6">
             <h2 className="text-lg font-semibold mb-4 dark:text-white">Change Password</h2>
@@ -146,6 +174,7 @@ export default function UserPage() {
             { key: "pending" as const, label: "Pending", count: pendingTasks.length },
             { key: "reassigned" as const, label: "Reassigned", count: reassignedTasks.length },
             { key: "extension" as const, label: "Extension", count: extensionTasks.length },
+            { key: "sites" as const, label: "Sites", count: sites.length },
           ].map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)} className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${tab === t.key ? "border-indigo-600 text-indigo-600 dark:text-indigo-400" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"}`}>
               {t.label} ({t.count})
@@ -155,6 +184,17 @@ export default function UserPage() {
 
         {loadingData ? (
           <div className="text-center py-12 text-gray-500 dark:text-gray-400">Loading...</div>
+        ) : tab === "sites" ? (
+          <div className="space-y-2">
+            {sites.filter(s => s.status === "ACTIVE").map((site) => (
+              <div key={site.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <p className="font-medium dark:text-white">{site.name}</p>
+                {site.description && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{site.description}</p>}
+                <p className="text-xs text-gray-400 mt-1">Created: {new Date(site.createdAt).toLocaleDateString()}</p>
+              </div>
+            ))}
+            {sites.filter(s => s.status === "ACTIVE").length === 0 && <p className="text-gray-500 dark:text-gray-400 text-center py-8">No active sites.</p>}
+          </div>
         ) : filteredTasks.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center py-8">No tasks found.</p>
         ) : (
@@ -235,15 +275,15 @@ export default function UserPage() {
                     </div>
                   )}
 
-                  {task.attachmentUrl && (
+                  {task.hasAttachment && (
                     <div className="mb-3">
-                      <a href={task.attachmentUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 dark:text-blue-400 underline">View Attachment</a>
+                      <button onClick={async () => { if (!task.attachmentUrl) { const full = await api.tasks.getById(task.id); if (full.attachmentUrl) openAttachment(full.attachmentUrl, `${task.name}_attachment`); } else { openAttachment(task.attachmentUrl, `${task.name}_attachment`); } }} className="text-xs text-blue-600 dark:text-blue-400 underline">View Attachment</button>
                     </div>
                   )}
 
-                  {task.completedAttachmentUrl && (
+                  {task.hasCompletedAttachment && (
                     <div className="mb-3">
-                      <a href={task.completedAttachmentUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-green-600 dark:text-green-400 underline">View Completion Attachment</a>
+                      <button onClick={async () => { if (!task.completedAttachmentUrl) { const full = await api.tasks.getById(task.id); if (full.completedAttachmentUrl) openAttachment(full.completedAttachmentUrl, `${task.name}_completed`); } else { openAttachment(task.completedAttachmentUrl, `${task.name}_completed`); } }} className="text-xs text-green-600 dark:text-green-400 underline">View Completion Attachment</button>
                     </div>
                   )}
 

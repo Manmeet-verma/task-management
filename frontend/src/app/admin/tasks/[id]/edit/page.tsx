@@ -24,7 +24,7 @@ export default function EditTaskPage() {
     description: "",
     status: "AVAILABLE",
   });
-  const [assignedToIds, setAssignedToIds] = useState<string[]>([]);
+  const [assignedToId, setAssignedToId] = useState<string>("");
   const [customSite, setCustomSite] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -46,7 +46,7 @@ export default function EditTaskPage() {
           description: t.description || "",
           status: t.status,
         });
-        setAssignedToIds(t.assignedToIds || (t.assignedToId ? [t.assignedToId] : []));
+        setAssignedToId(t.assignedToId || (t.assignedToIds && t.assignedToIds.length > 0 ? t.assignedToIds[0] : ""));
       });
       api.admin.getUsers().then(setUsers).catch(() => {});
       api.categories.getAll().then(setCategories).catch(() => {});
@@ -65,18 +65,12 @@ export default function EditTaskPage() {
         ...form,
         siteProject: form.siteProject === "Others" ? customSite : form.siteProject,
         description: form.description || "",
-        assignedToIds,
+        assignedToIds: assignedToId ? [assignedToId] : [],
       };
       await api.tasks.update(taskId, submitData);
       router.push("/admin");
     } catch (err: unknown) { setError(err instanceof Error ? err.message : "Failed"); }
     finally { setSaving(false); }
-  };
-
-  const toggleUser = (userId: string) => {
-    setAssignedToIds((prev) =>
-      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
-    );
   };
 
   return (
@@ -155,19 +149,13 @@ export default function EditTaskPage() {
             <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Assign Users (click to toggle)</label>
-            <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-md p-3">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Assign To</label>
+            <select value={assignedToId} onChange={(e) => setAssignedToId(e.target.value)} className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="">Unassigned (Available)</option>
               {users.filter(u => u.role === "USER").map((u) => (
-                <label key={u.id} className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-colors ${assignedToIds.includes(u.id) ? "bg-indigo-100 dark:bg-indigo-900/30 border border-indigo-400" : "hover:bg-gray-100 dark:hover:bg-gray-700 border border-transparent"}`}>
-                  <input type="checkbox" checked={assignedToIds.includes(u.id)} onChange={() => toggleUser(u.id)} className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                  <span className="text-sm dark:text-white">{u.username}</span>
-                </label>
+                <option key={u.id} value={u.id}>{u.username}</option>
               ))}
-              {users.filter(u => u.role === "USER").length === 0 && <p className="text-sm text-gray-400 col-span-2">No users available</p>}
-            </div>
-            {assignedToIds.length > 0 && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{assignedToIds.length} user(s) selected</p>
-            )}
+            </select>
           </div>
           <div className="flex gap-3">
             <button type="submit" disabled={saving} className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 disabled:opacity-50">{saving ? "Saving..." : "Save Changes"}</button>

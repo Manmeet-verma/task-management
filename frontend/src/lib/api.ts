@@ -171,6 +171,8 @@ export interface Task {
   attachmentType?: string;
   completedAttachmentUrl?: string;
   completedAttachmentType?: string;
+  hasAttachment?: boolean;
+  hasCompletedAttachment?: boolean;
   extRejectReason?: string;
   extRejectedBy?: string;
 }

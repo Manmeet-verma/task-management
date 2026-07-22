@@ -6,6 +6,7 @@ import { useRouter, useParams } from "next/navigation";
 import { api, type Task, type Submission } from "@/lib/api";
 import Navbar from "@/components/Navbar";
 import StatusBadge from "@/components/StatusBadge";
+import { openAttachment } from "@/lib/attachment";
 
 export default function TaskDetailPage() {
   const { user, loading } = useAuth();
@@ -157,7 +158,7 @@ export default function TaskDetailPage() {
           {task.description && <p className="text-gray-700 dark:text-gray-300">{task.description}</p>}
           {task.attachmentUrl && (
             <div className="mt-4">
-              <a href={task.attachmentUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 dark:text-blue-400 underline">View Task Attachment</a>
+              <button onClick={() => openAttachment(task.attachmentUrl!, `${task.name}_attachment`)} className="text-sm text-blue-600 dark:text-blue-400 underline">View Task Attachment</button>
             </div>
           )}
         </div>
@@ -199,7 +200,7 @@ export default function TaskDetailPage() {
             )}
             {task.completedAttachmentUrl && (
               <div className="mt-2">
-                <a href={task.completedAttachmentUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-green-600 dark:text-green-400 underline">View Completion Attachment</a>
+                <button onClick={() => openAttachment(task.completedAttachmentUrl!, `${task.name}_completed`)} className="text-sm text-green-600 dark:text-green-400 underline">View Completion Attachment</button>
               </div>
             )}
           </div>
@@ -372,7 +373,7 @@ export default function TaskDetailPage() {
                   {sub.adminComments && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 italic">Admin: {sub.adminComments}</p>}
                   {sub.pendingReason && <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-1 italic">Reason: {sub.pendingReason}</p>}
                   {sub.reportUrl && (
-                    <a href={sub.reportUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 dark:text-blue-400 underline mt-1 inline-block">View Attachment</a>
+                    <button onClick={() => openAttachment(sub.reportUrl!, `submission_${sub.id}`)} className="text-xs text-blue-600 dark:text-blue-400 underline mt-1 inline-block">View Attachment</button>
                   )}
                 </div>
               ))}

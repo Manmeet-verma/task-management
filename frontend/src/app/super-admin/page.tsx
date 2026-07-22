@@ -7,6 +7,7 @@ import { api, type Task, type User, type Category, type Site } from "@/lib/api";
 import Navbar from "@/components/Navbar";
 import StatusBadge from "@/components/StatusBadge";
 import Link from "next/link";
+import { openAttachment } from "@/lib/attachment";
 
 interface SystemStats {
   totalTasks: number;
@@ -482,8 +483,8 @@ export default function SuperAdminPage() {
                             {task.completedRemarks && <p className="text-green-600 dark:text-green-400"><span className="font-medium">Completed Remarks:</span> {task.completedRemarks}</p>}
                             {task.pendingReason && <p className="text-yellow-600 dark:text-yellow-400"><span className="font-medium">Pending Reason:</span> {task.pendingReason}</p>}
                             {task.rejectReason && <p className="text-red-600 dark:text-red-400"><span className="font-medium">Reject Reason:</span> {task.rejectReason}</p>}
-                            {task.attachmentUrl && <p className="text-blue-600 dark:text-blue-400"><span className="font-medium">Attachment:</span> <a href={task.attachmentUrl} target="_blank" rel="noopener noreferrer" className="underline">View</a></p>}
-                            {task.completedAttachmentUrl && <p className="text-green-600 dark:text-green-400"><span className="font-medium">Completion Attachment:</span> <a href={task.completedAttachmentUrl} target="_blank" rel="noopener noreferrer" className="underline">View</a></p>}
+                            {task.attachmentUrl && <p className="text-blue-600 dark:text-blue-400"><span className="font-medium">Attachment:</span> <button onClick={() => openAttachment(task.attachmentUrl!, `${task.name}_attachment`)} className="underline">View</button></p>}
+                            {task.completedAttachmentUrl && <p className="text-green-600 dark:text-green-400"><span className="font-medium">Completion Attachment:</span> <button onClick={() => openAttachment(task.completedAttachmentUrl!, `${task.name}_completed`)} className="underline">View</button></p>}
                           </div>
                         )}
                       </td>
