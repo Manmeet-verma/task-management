@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { api, type Task, type User, type DashboardStats, type Category, type Site } from "@/lib/api";
 import Navbar from "@/components/Navbar";
 import StatusBadge from "@/components/StatusBadge";
+import Pagination from "@/components/Pagination";
 import Link from "next/link";
 import { openAttachment } from "@/lib/attachment";
 
@@ -21,7 +22,7 @@ export default function AdminPage() {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [page, setPage] = useState(1);
-  const perPage = 10;
+  const [perPage, setPerPage] = useState(10);
   const [tab, setTab] = useState<"all" | "created" | "assigned" | "completed" | "pending" | "reassigned" | "extension" | "users" | "categories" | "sites">("all");
   const [reassigningId, setReassigningId] = useState<string | null>(null);
   const [reassignUserId, setReassignUserId] = useState("");
@@ -429,13 +430,14 @@ export default function AdminPage() {
                 </tbody>
               </table>
             </div>
-            {totalPages > 1 && (
-              <div className="flex justify-center gap-2 mt-4">
-                <button disabled={page === 1} onClick={() => setPage(page - 1)} className="px-3 py-1 rounded border dark:border-gray-600 dark:text-gray-300 disabled:opacity-50">Prev</button>
-                <span className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400">Page {page} of {totalPages}</span>
-                <button disabled={page === totalPages} onClick={() => setPage(page + 1)} className="px-3 py-1 rounded border dark:border-gray-600 dark:text-gray-300 disabled:opacity-50">Next</button>
-              </div>
-            )}
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalItems={filteredTasks.length}
+              perPage={perPage}
+              onPageChange={setPage}
+              onPerPageChange={(n) => { setPerPage(n); setPage(1); }}
+            />
           </>
         )}
       </div>
