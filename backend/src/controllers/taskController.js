@@ -19,6 +19,7 @@ exports.create = async (req, res) => {
       assignedToIds: assignedToIds || [],
       assignedToId: assignedToIds && assignedToIds.length > 0 ? assignedToIds[0] : null,
       extensionCount: 0,
+      history: [{ date: new Date().toISOString(), action: 'Created', details: `Task created by ${req.user.username}`, performedBy: req.user.id }],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -185,13 +186,18 @@ exports.update = async (req, res) => {
 
     const { name, category, siteProject, deadline, priority, description, status, assignedToIds } = req.body;
     const updates = { updatedAt: new Date().toISOString() };
+    const history = snapshot.val().history || [];
+
     if (name !== undefined) updates.name = name;
     if (category !== undefined) updates.category = category;
     if (siteProject !== undefined) updates.siteProject = siteProject;
     if (deadline !== undefined) updates.deadline = new Date(deadline).toISOString();
     if (priority !== undefined) updates.priority = priority;
     if (description !== undefined) updates.description = description;
-    if (status !== undefined) updates.status = status;
+    if (status !== undefined) {
+      updates.status = status;
+      history.push({ date: new Date().toISOString(), action: 'Status Changed', details: `Status changed to ${status}`, performedBy: req.user.id });
+    }
     if (assignedToIds !== undefined) {
       updates.assignedToIds = assignedToIds;
       updates.assignedToId = assignedToIds.length > 0 ? assignedToIds[0] : null;
@@ -200,6 +206,7 @@ exports.update = async (req, res) => {
       }
     }
 
+    updates.history = history;
     await update(taskRef, updates);
     const updated = (await get(taskRef)).val();
     res.json(updated);
@@ -230,10 +237,14 @@ exports.claim = async (req, res) => {
     const assignedToIds = task.assignedToIds || [];
     if (!assignedToIds.includes(req.user.id)) assignedToIds.push(req.user.id);
 
+    const history = task.history || [];
+    history.push({ date: new Date().toISOString(), action: 'Claimed', details: `Task claimed by ${req.user.username}`, performedBy: req.user.id });
+
     const updates = {
       assignedToId: req.user.id,
       assignedToIds,
       status: 'IN_PROGRESS',
+      history,
       updatedAt: new Date().toISOString(),
     };
     if (userDeadline) updates.userDeadline = new Date(userDeadline).toISOString();
@@ -252,9 +263,11 @@ exports.accept = async (req, res) => {
     const snapshot = await get(taskRef);
 
     if (!snapshot.exists()) return res.status(404).json({ error: 'Task not found' });
-    const task = snapshot.val();
 
-    await update(taskRef, { status: 'ACCEPTED', updatedAt: new Date().toISOString() });
+    const history = snapshot.val().history || [];
+    history.push({ date: new Date().toISOString(), action: 'Accepted', details: `Task accepted`, performedBy: req.user.id });
+
+    await update(taskRef, { status: 'ACCEPTED', history, updatedAt: new Date().toISOString() });
     const updated = (await get(taskRef)).val();
     res.json(updated);
   } catch (err) {
@@ -270,9 +283,13 @@ exports.reject = async (req, res) => {
 
     if (!snapshot.exists()) return res.status(404).json({ error: 'Task not found' });
 
+    const history = snapshot.val().history || [];
+    history.push({ date: new Date().toISOString(), action: 'Rejected', details: `Task rejected. Reason: ${reason || 'None'}`, performedBy: req.user.id });
+
     const updates = {
       status: 'REJECTED',
       rejectReason: reason || '',
+      history,
       updatedAt: new Date().toISOString(),
     };
 
@@ -296,9 +313,13 @@ exports.pending = async (req, res) => {
       return res.status(403).json({ error: 'Not your task' });
     }
 
+    const history = task.history || [];
+    history.push({ date: new Date().toISOString(), action: 'Marked Pending', details: `Marked pending. Reason: ${reason || 'None'}`, performedBy: req.user.id });
+
     const updates = {
       status: 'PENDING',
       pendingReason: reason || '',
+      history,
       updatedAt: new Date().toISOString(),
     };
 
@@ -334,10 +355,14 @@ exports.complete = async (req, res) => {
       return res.status(403).json({ error: 'Not your task' });
     }
 
+    const history = task.history || [];
+    history.push({ date: new Date().toISOString(), action: 'Completed', details: `Task completed. Remarks: ${remarks || 'None'}`, performedBy: req.user.id });
+
     const updates = {
       status: 'COMPLETED',
       completedRemarks: remarks || '',
       completedAt: new Date().toISOString(),
+      history,
       updatedAt: new Date().toISOString(),
     };
 
@@ -368,7 +393,10 @@ exports.approveComplete = async (req, res) => {
 
     if (!snapshot.exists()) return res.status(404).json({ error: 'Task not found' });
 
-    await update(taskRef, { status: 'VERIFIED', updatedAt: new Date().toISOString() });
+    const history = snapshot.val().history || [];
+    history.push({ date: new Date().toISOString(), action: 'Approved & Locked', details: `Task approved and locked by admin`, performedBy: req.user.id });
+
+    await update(taskRef, { status: 'VERIFIED', locked: true, history, updatedAt: new Date().toISOString() });
     const updated = (await get(taskRef)).val();
     res.json(updated);
   } catch (err) {
@@ -389,12 +417,16 @@ exports.extendDate = async (req, res) => {
     }
 
     const extCount = (task.extensionCount || 0) + 1;
+    const history = task.history || [];
+    history.push({ date: new Date().toISOString(), action: 'Extension Requested', details: `Extension #${extCount} requested. New deadline: ${newDeadline}. Reason: ${reason || 'None'}`, performedBy: req.user.id });
+
     const updates = {
       extensionCount: extCount,
       extendDeadline: newDeadline ? new Date(newDeadline).toISOString() : null,
       extendReason: reason || '',
       extendStatus: 'PENDING',
       lastExtReason: reason || '',
+      history,
       updatedAt: new Date().toISOString(),
     };
 
@@ -414,8 +446,12 @@ exports.approveExtend = async (req, res) => {
     if (!snapshot.exists()) return res.status(404).json({ error: 'Task not found' });
     const task = snapshot.val();
 
+    const history = task.history || [];
+    history.push({ date: new Date().toISOString(), action: 'Extension Approved', details: `Extension request approved by admin`, performedBy: req.user.id });
+
     const updates = {
       extendStatus: 'APPROVED',
+      history,
       updatedAt: new Date().toISOString(),
     };
     if (task.extendDeadline) {
@@ -436,9 +472,14 @@ exports.rejectExtend = async (req, res) => {
     const snapshot = await get(taskRef);
 
     if (!snapshot.exists()) return res.status(404).json({ error: 'Task not found' });
+    const task = snapshot.val();
+
+    const history = task.history || [];
+    history.push({ date: new Date().toISOString(), action: 'Extension Rejected', details: `Extension request rejected by admin`, performedBy: req.user.id });
 
     const updates = {
       extendStatus: 'REJECTED',
+      history,
       updatedAt: new Date().toISOString(),
     };
 
@@ -457,7 +498,10 @@ exports.lock = async (req, res) => {
 
     if (!snapshot.exists()) return res.status(404).json({ error: 'Task not found' });
 
-    await update(taskRef, { locked: true, status: 'LOCKED', updatedAt: new Date().toISOString() });
+    const history = snapshot.val().history || [];
+    history.push({ date: new Date().toISOString(), action: 'Locked', details: `Task locked by admin`, performedBy: req.user.id });
+
+    await update(taskRef, { locked: true, status: 'LOCKED', history, updatedAt: new Date().toISOString() });
     const updated = (await get(taskRef)).val();
     res.json(updated);
   } catch (err) {
@@ -467,7 +511,7 @@ exports.lock = async (req, res) => {
 
 exports.reassign = async (req, res) => {
   try {
-    const { assignedToId } = req.body;
+    const { assignedToId, reason } = req.body;
     const taskRef = ref(db, `tasks/${req.params.id}`);
     const snapshot = await get(taskRef);
 
@@ -478,10 +522,20 @@ exports.reassign = async (req, res) => {
     const assignedToIds = task.assignedToIds || [];
     if (!assignedToIds.includes(assignedToId)) assignedToIds.push(assignedToId);
 
+    const usersSnapshot = await get(ref(db, 'users'));
+    const users = usersSnapshot.exists() ? usersSnapshot.val() : {};
+    const newAssignee = users[assignedToId] ? users[assignedToId].username : assignedToId;
+
+    const history = task.history || [];
+    history.push({ date: new Date().toISOString(), action: 'Reassigned', details: `Task reassigned to ${newAssignee}. Reason: ${reason || 'None'}`, performedBy: req.user.id });
+
     const updates = {
       assignedToId,
       assignedToIds,
       status: 'ASSIGNED',
+      reassignReason: reason || '',
+      reassignedBy: req.user.username || req.user.id,
+      history,
       updatedAt: new Date().toISOString(),
     };
 
@@ -506,7 +560,10 @@ exports.pendingResubmit = async (req, res) => {
     }
     if (!pendingReason) return res.status(400).json({ error: 'Pending reason is required' });
 
-    await update(taskRef, { status: 'PENDING_RESUBMIT', updatedAt: new Date().toISOString() });
+    const history = task.history || [];
+    history.push({ date: new Date().toISOString(), action: 'Pending Resubmit', details: `Pending resubmit requested`, performedBy: req.user.id });
+
+    await update(taskRef, { status: 'PENDING_RESUBMIT', history, updatedAt: new Date().toISOString() });
 
     const newSubRef = push(ref(db, 'submissions'));
     await set(newSubRef, {

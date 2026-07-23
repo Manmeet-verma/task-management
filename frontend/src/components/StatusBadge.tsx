@@ -1,7 +1,7 @@
 const statusStyles: Record<string, string> = {
   AVAILABLE: "bg-blue-100 text-blue-800",
   ASSIGNED: "bg-blue-100 text-blue-800",
-  IN_PROGRESS: "bg-blue-100 text-blue-800",
+  IN_PROGRESS: "bg-yellow-100 text-yellow-800",
   SUBMITTED: "bg-yellow-100 text-yellow-800",
   PENDING: "bg-yellow-100 text-yellow-800",
   ACCEPTED: "bg-indigo-100 text-indigo-800",
@@ -14,7 +14,8 @@ const statusStyles: Record<string, string> = {
 
 const statusLabels: Record<string, string> = {
   PENDING_RESUBMIT: "Pending Resubmit",
-  IN_PROGRESS: "In Progress",
+  IN_PROGRESS: "Pending",
+  LOCKED: "Completed(locked)",
   EXTEND_PENDING: "Extend Request",
 };
 

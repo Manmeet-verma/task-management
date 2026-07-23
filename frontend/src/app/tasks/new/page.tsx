@@ -92,7 +92,7 @@ export default function NewTaskPage() {
     <div className="min-h-screen dark:bg-gray-900">
       <Navbar />
       <div className="max-w-2xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-6 dark:text-white">Create New Task</h1>
+        <h1 className="text-2xl font-bold mb-6 dark:text-white">Create New Request</h1>
         {error && <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-3 rounded-md mb-4 text-sm">{error}</div>}
         <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 space-y-4">
           <div>
@@ -190,7 +190,7 @@ export default function NewTaskPage() {
           </div>
           <div className="flex gap-3">
             <button type="submit" disabled={saving} className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 disabled:opacity-50">
-              {saving ? "Creating..." : "Create Task"}
+              {saving ? "Creating..." : "Create Request"}
             </button>
             <button type="button" onClick={redirectBack} className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600">
               Cancel

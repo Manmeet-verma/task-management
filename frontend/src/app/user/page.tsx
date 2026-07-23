@@ -24,6 +24,8 @@ export default function UserPage() {
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
+  const [topAction, setTopAction] = useState<"create" | "all" | "site">("all");
+  const [selectedSite, setSelectedSite] = useState<string>("");
 
   useEffect(() => {
     if (!loading && (!user || user.role !== "USER")) router.replace("/login");
@@ -73,6 +75,12 @@ export default function UserPage() {
     }
   };
 
+  const now = new Date();
+  const isOverdue = (task: Task) => {
+    const deadline = new Date(task.deadline);
+    return deadline < now && task.status !== "COMPLETED" && task.status !== "LOCKED" && task.status !== "VERIFIED";
+  };
+
   const assignedToMeTasks = myTasks.filter((t) => t.assignedToId === user?.id);
   const createdByMeTasks = myTasks.filter((t) => t.createdById === user?.id);
   const completedTasks = myTasks.filter((t) => t.status === "COMPLETED" || t.status === "LOCKED");
@@ -81,6 +89,9 @@ export default function UserPage() {
   const extensionTasks = myTasks.filter((t) => t.extendStatus === "PENDING" || t.extendStatus === "APPROVED" || t.extendStatus === "REJECTED");
 
   const filteredTasks = myTasks.filter((t) => {
+    if (topAction === "site" && selectedSite) {
+      if (t.siteProject !== selectedSite) return false;
+    }
     if (tab === "assigned") return t.assignedToId === user?.id;
     if (tab === "created") return t.createdById === user?.id;
     if (tab === "completed") return t.status === "COMPLETED" || t.status === "LOCKED";
@@ -113,19 +124,51 @@ export default function UserPage() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold dark:text-white">My Tasks ({myTasks.length})</h1>
           <div className="flex gap-2">
-            <Link href="/tasks/new" className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">+ Create Task</Link>
+            <Link href="/tasks/new" className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">+ Create Request</Link>
             <button onClick={() => setShowChangePassword(true)} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 text-sm">Change Password</button>
           </div>
         </div>
 
+        <div className="flex gap-2 mb-6">
+          <button onClick={() => { setTopAction("all"); setSelectedSite(""); }} className={`px-4 py-2 rounded-md text-sm font-medium ${topAction === "all" ? "bg-indigo-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}>
+            All Task
+          </button>
+          <button onClick={() => { setTopAction("create"); setSelectedSite(""); }} className={`px-4 py-2 rounded-md text-sm font-medium ${topAction === "create" ? "bg-indigo-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}>
+            Create Request
+          </button>
+          <div className="relative">
+            <button onClick={() => setTopAction("site")} className={`px-4 py-2 rounded-md text-sm font-medium ${topAction === "site" ? "bg-indigo-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}>
+              Task Vise {topAction === "site" && selectedSite ? `(${selectedSite})` : ""}
+            </button>
+            {topAction === "site" && (
+              <div className="absolute z-10 mt-1 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+                <button onClick={() => { setSelectedSite(""); }} className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white rounded-t-lg">All Sites</button>
+                {sites.filter(s => s.status === "ACTIVE").map((site, i) => (
+                  <button key={site.id} onClick={() => { setSelectedSite(site.name); }} className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white ${i === sites.filter(s => s.status === "ACTIVE").length - 1 ? "rounded-b-lg" : ""}`}>
+                    {site.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {topAction === "create" && (
+          <div className="mb-6">
+            <Link href="/tasks/new" className="block w-full text-center bg-indigo-600 text-white px-6 py-4 rounded-lg hover:bg-indigo-700 text-lg font-medium">
+              + Create New Request
+            </Link>
+          </div>
+        )}
+
         {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Tasks</p>
               <p className="text-2xl font-bold dark:text-white">{stats.totalTasks}</p>
             </div>
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-              <p className="text-sm text-gray-500 dark:text-gray-400">In Progress</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Pending</p>
               <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.inProgressTasks}</p>
             </div>
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
@@ -133,8 +176,12 @@ export default function UserPage() {
               <p className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.completedTasks}</p>
             </div>
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Pending</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Pending Review</p>
               <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{stats.pendingTasks}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 border border-red-200 dark:border-red-700 rounded-lg p-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Overdue</p>
+              <p className="text-2xl font-bold text-red-600 dark:text-red-400">{myTasks.filter(t => isOverdue(t)).length}</p>
             </div>
           </div>
         )}
@@ -165,22 +212,24 @@ export default function UserPage() {
           </div>
         )}
 
-        <div className="flex gap-4 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
-          {[
-            { key: "all" as const, label: "All", count: myTasks.length },
-            { key: "assigned" as const, label: "Assigned to Me", count: assignedToMeTasks.length },
-            { key: "created" as const, label: "Created by Me", count: createdByMeTasks.length },
-            { key: "completed" as const, label: "Completed", count: completedTasks.length },
-            { key: "pending" as const, label: "Pending", count: pendingTasks.length },
-            { key: "reassigned" as const, label: "Reassigned", count: reassignedTasks.length },
-            { key: "extension" as const, label: "Extension", count: extensionTasks.length },
-            { key: "sites" as const, label: "Sites", count: sites.length },
-          ].map((t) => (
-            <button key={t.key} onClick={() => setTab(t.key)} className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${tab === t.key ? "border-indigo-600 text-indigo-600 dark:text-indigo-400" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"}`}>
-              {t.label} ({t.count})
-            </button>
-          ))}
-        </div>
+        {topAction !== "create" && (
+          <div className="flex gap-4 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+            {[
+              { key: "all" as const, label: "All", count: filteredTasks.length },
+              { key: "assigned" as const, label: "Requested to Me", count: filteredTasks.filter((t) => t.assignedToId === user?.id).length },
+              { key: "created" as const, label: "Created by Me", count: filteredTasks.filter((t) => t.createdById === user?.id).length },
+              { key: "completed" as const, label: "Completed", count: filteredTasks.filter((t) => t.status === "COMPLETED" || t.status === "LOCKED").length },
+              { key: "pending" as const, label: "Pending", count: filteredTasks.filter((t) => t.status === "PENDING" || t.extendStatus === "PENDING").length },
+              { key: "reassigned" as const, label: "Reassigned", count: filteredTasks.filter((t) => !!t.reassignReason).length },
+              { key: "extension" as const, label: "Extension", count: filteredTasks.filter((t) => t.extendStatus === "PENDING" || t.extendStatus === "APPROVED" || t.extendStatus === "REJECTED").length },
+              { key: "sites" as const, label: "Sites", count: sites.length },
+            ].map((t) => (
+              <button key={t.key} onClick={() => setTab(t.key)} className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${tab === t.key ? "border-indigo-600 text-indigo-600 dark:text-indigo-400" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"}`}>
+                {t.label} ({t.count})
+              </button>
+            ))}
+          </div>
+        )}
 
         {loadingData ? (
           <div className="text-center py-12 text-gray-500 dark:text-gray-400">Loading...</div>
@@ -201,16 +250,20 @@ export default function UserPage() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredTasks.map((task) => {
               const canAct = !task.locked && task.status !== "COMPLETED" && task.status !== "LOCKED" && task.status !== "REJECTED";
+              const overdue = isOverdue(task);
               return (
-                <div key={task.id} className={`rounded-lg border p-5 ${getStatusColor(task)}`}>
+                <div key={task.id} className={`rounded-lg border p-5 ${overdue ? "bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700" : getStatusColor(task)}`}>
                   <div className="flex items-start justify-between mb-3">
                     <h3 className="font-semibold dark:text-white">{task.name}</h3>
-                    <StatusBadge status={task.status} />
+                    <div className="flex items-center gap-2">
+                      {overdue && <span className="text-xs bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-300 px-2 py-0.5 rounded-full font-medium">Overdue</span>}
+                      <StatusBadge status={task.status} />
+                    </div>
                   </div>
                   <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1 mb-4">
                     <p>Category: {task.category}</p>
                     <p>Site: {task.siteProject}</p>
-                    <p className="text-indigo-600 dark:text-indigo-400">Assigned By: {task.createdById === user?.id ? "You" : (task.assignedByName || task.createdBy?.username || "Unknown")}</p>
+                    <p className="text-indigo-600 dark:text-indigo-400">Requested By: {task.createdById === user?.id ? "You" : (task.assignedByName || task.createdBy?.username || "Unknown")}</p>
                     {task.createdById === user?.id && task.assignedTo && (
                       <p className="text-blue-600 dark:text-blue-400">Assigned To: {task.assignedTo.username}</p>
                     )}
@@ -271,7 +324,7 @@ export default function UserPage() {
 
                   {task.locked && (
                     <div className="bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded p-2 mb-3">
-                      <p className="text-xs text-gray-600 dark:text-gray-400">This task is locked. No changes allowed.</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">This task is completed(locked). No changes allowed.</p>
                     </div>
                   )}
 

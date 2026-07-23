@@ -32,14 +32,14 @@ exports.register = async (req, res) => {
     await set(newUserRef, user);
 
     const token = jwt.sign(
-      { id: userId, username, role: 'USER' },
+      { id: userId, username, role: 'USER', isMaster: false },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
     res.status(201).json({
       token,
-      user: { id: userId, username, email, role: 'USER' },
+      user: { id: userId, username, email, role: 'USER', isMaster: false },
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -68,14 +68,14 @@ exports.login = async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role },
+      { id: user.id, username: user.username, role: user.role, isMaster: user.isMaster || false },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
     res.json({
       token,
-      user: { id: user.id, username: user.username, email: user.email, role: user.role },
+      user: { id: user.id, username: user.username, email: user.email, role: user.role, isMaster: user.isMaster || false },
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -92,7 +92,7 @@ exports.me = async (req, res) => {
     }
 
     const user = snapshot.val();
-    res.json({ id: user.id, username: user.username, email: user.email, role: user.role });
+    res.json({ id: user.id, username: user.username, email: user.email, role: user.role, isMaster: user.isMaster || false });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

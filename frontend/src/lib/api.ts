@@ -99,9 +99,9 @@ export const api = {
   },
   admin: {
     getUsers: () => request<User[]>("/admin/users"),
-    createUser: (data: { username: string; email: string; password: string; role: string; isMaster?: boolean }) =>
+    createUser: (data: { username: string; email: string; password: string; role: string; isMaster?: boolean; panCard?: string; aadharCard?: string; gst?: string }) =>
       request<User>("/admin/users", { method: "POST", body: data }),
-    updateUser: (id: string, data: Partial<{ username: string; email: string; password: string; role: string; isMaster: boolean }>) =>
+    updateUser: (id: string, data: Partial<{ username: string; email: string; password: string; role: string; isMaster: boolean; panCard: string; aadharCard: string; gst: string }>) =>
       request<User>(`/admin/users/${id}`, { method: "PUT", body: data }),
     deleteUser: (id: string) =>
       request<{ message: string }>(`/admin/users/${id}`, { method: "DELETE" }),
@@ -133,6 +133,9 @@ export interface User {
   email: string;
   role: "ADMIN" | "USER";
   isMaster?: boolean;
+  panCard?: string;
+  aadharCard?: string;
+  gst?: string;
 }
 
 export interface Task {
@@ -175,6 +178,7 @@ export interface Task {
   hasCompletedAttachment?: boolean;
   extRejectReason?: string;
   extRejectedBy?: string;
+  history?: { date: string; action: string; details: string; performedBy?: string }[];
 }
 
 export interface Submission {

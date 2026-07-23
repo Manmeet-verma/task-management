@@ -15,15 +15,12 @@ export default function TaskDetailPage() {
   const taskId = params.id as string;
   const [task, setTask] = useState<Task | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
-  const [pendingReason, setPendingReason] = useState("");
-  const [showPendingForm, setShowPendingForm] = useState(false);
   const [showExtendForm, setShowExtendForm] = useState(false);
   const [showCompleteForm, setShowCompleteForm] = useState(false);
   const [completeRemarks, setCompleteRemarks] = useState("");
   const [extendDeadline, setExtendDeadline] = useState("");
   const [extendReason, setExtendReason] = useState("");
   const [completing, setCompleting] = useState(false);
-  const [pendingSubmitting, setPendingSubmitting] = useState(false);
   const [extendSubmitting, setExtendSubmitting] = useState(false);
   const [completeFile, setCompleteFile] = useState<File | null>(null);
   const [completeFilePreview, setCompleteFilePreview] = useState<string>("");
@@ -85,14 +82,6 @@ export default function TaskDetailPage() {
     finally { setCompleting(false); }
   };
 
-  const handlePending = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pendingReason.trim()) { alert("Please provide a reason"); return; }
-    setPendingSubmitting(true);
-    try { await api.tasks.pending(taskId, pendingReason); setPendingReason(""); setShowPendingForm(false); loadTask(); } catch (err) { console.error(err); }
-    finally { setPendingSubmitting(false); }
-  };
-
   const handleExtend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!extendDeadline) { alert("Please select a new deadline"); return; }
@@ -135,6 +124,11 @@ export default function TaskDetailPage() {
 
   const canAct = !task.locked && task.status !== "COMPLETED" && task.status !== "LOCKED" && task.status !== "REJECTED" && task.status !== "PENDING";
 
+  const isOverdue = (() => {
+    const deadline = new Date(task.deadline);
+    return deadline < new Date() && task.status !== "COMPLETED" && task.status !== "LOCKED" && task.status !== "VERIFIED";
+  })();
+
   return (
     <div className="min-h-screen dark:bg-gray-900">
       <Navbar />
@@ -144,7 +138,10 @@ export default function TaskDetailPage() {
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
           <div className="flex items-start justify-between mb-4">
             <h1 className="text-2xl font-bold dark:text-white">{task.name}</h1>
-            <StatusBadge status={task.status} />
+            <div className="flex items-center gap-2">
+              {isOverdue && <span className="text-xs bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-300 px-2 py-0.5 rounded-full font-medium">Overdue</span>}
+              <StatusBadge status={task.status} />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 dark:text-gray-400 mb-4">
             <p><span className="font-medium">Category:</span> {task.category}</p>
@@ -152,7 +149,7 @@ export default function TaskDetailPage() {
             <p><span className="font-medium">Deadline:</span> {new Date(task.deadline).toLocaleDateString()}</p>
             {task.userDeadline && <p><span className="font-medium">Your Deadline:</span> {new Date(task.userDeadline).toLocaleDateString()}</p>}
             <p><span className="font-medium">Priority:</span> {task.priority}</p>
-            <p className="text-indigo-600 dark:text-indigo-400"><span className="font-medium">Assigned By:</span> {task.assignedByName || task.createdBy?.username || "Unknown"}</p>
+            <p className="text-indigo-600 dark:text-indigo-400"><span className="font-medium">Requested By:</span> {task.assignedByName || task.createdBy?.username || "Unknown"}</p>
             {task.extensionCount > 0 && <p className="text-red-600 dark:text-red-400"><span className="font-medium">Extensions:</span> {task.extensionCount}</p>}
           </div>
           {task.description && <p className="text-gray-700 dark:text-gray-300">{task.description}</p>}
@@ -165,7 +162,7 @@ export default function TaskDetailPage() {
 
         {task.locked && (
           <div className="bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300">Task Locked</h2>
+            <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300">Task Completed(locked)</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">This task has been approved and locked by admin. No further actions allowed.</p>
           </div>
         )}
@@ -225,15 +222,12 @@ export default function TaskDetailPage() {
         {canAct && task.assignedToId === user?.id && (
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
             <h2 className="text-lg font-semibold mb-4 dark:text-white">Take Action</h2>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <button onClick={() => setShowCompleteForm(true)} className="bg-green-600 text-white px-4 py-3 rounded-md hover:bg-green-700 font-medium text-sm">
                 Complete
               </button>
               <button onClick={() => setShowExtendForm(true)} className="bg-orange-500 text-white px-4 py-3 rounded-md hover:bg-orange-600 font-medium text-sm">
                 Extend Date
-              </button>
-              <button onClick={() => setShowPendingForm(true)} className="bg-yellow-500 text-white px-4 py-3 rounded-md hover:bg-yellow-600 font-medium text-sm">
-                Pending
               </button>
             </div>
           </div>
@@ -319,19 +313,6 @@ export default function TaskDetailPage() {
               <div className="flex gap-2">
                 <button type="submit" disabled={completing} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-50">{completing ? "Completing..." : "Submit & Complete"}</button>
                 <button type="button" onClick={() => { setShowCompleteForm(false); setCompleteRemarks(""); setCompleteFile(null); setCompleteFilePreview(""); }} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">Cancel</button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {showPendingForm && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-yellow-200 dark:border-yellow-800 p-6 mb-6">
-            <form onSubmit={handlePending} className="space-y-4">
-              <h2 className="text-lg font-semibold dark:text-white">Why is this pending?</h2>
-              <textarea value={pendingReason} onChange={(e) => setPendingReason(e.target.value)} rows={3} className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-500" placeholder="Explain why this task is pending..." />
-              <div className="flex gap-2">
-                <button type="submit" disabled={pendingSubmitting} className="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600 disabled:opacity-50">{pendingSubmitting ? "Submitting..." : "Submit"}</button>
-                <button type="button" onClick={() => { setShowPendingForm(false); setPendingReason(""); }} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">Cancel</button>
               </div>
             </form>
           </div>
