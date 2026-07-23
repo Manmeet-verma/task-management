@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
-import { api, type Task, type Site, type DashboardStats } from "@/lib/api";
+import { api, type Task, type Site } from "@/lib/api";
 import Navbar from "@/components/Navbar";
 import StatusBadge from "@/components/StatusBadge";
 import Link from "next/link";
@@ -14,7 +14,6 @@ export default function UserPage() {
   const router = useRouter();
   const [myTasks, setMyTasks] = useState<Task[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
-  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loadingData, setLoadingData] = useState(true);
   const [tab, setTab] = useState<"all" | "assigned" | "created" | "completed" | "pending" | "reassigned" | "extension" | "sites">("all");
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -38,11 +37,10 @@ export default function UserPage() {
   const loadData = async () => {
     setLoadingData(true);
     try {
-      const [t, s, st] = await Promise.all([
-        api.tasks.getMine(), api.tasks.getStats(), api.sites.getAll()
+      const [t, st] = await Promise.all([
+        api.tasks.getMine(), api.sites.getAll()
       ]);
       setMyTasks(t);
-      setStats(s);
       setSites(st);
     } catch (err) { console.error(err); }
     finally { setLoadingData(false); }
@@ -84,9 +82,11 @@ export default function UserPage() {
   const assignedToMeTasks = myTasks.filter((t) => t.assignedToId === user?.id);
   const createdByMeTasks = myTasks.filter((t) => t.createdById === user?.id);
   const completedTasks = myTasks.filter((t) => t.status === "COMPLETED" || t.status === "LOCKED");
+  const pendingReviewTasks = myTasks.filter((t) => t.status === "PENDING");
   const pendingTasks = myTasks.filter((t) => t.status === "PENDING" || t.extendStatus === "PENDING");
   const reassignedTasks = myTasks.filter((t) => t.reassignReason);
   const extensionTasks = myTasks.filter((t) => t.extendStatus === "PENDING" || t.extendStatus === "APPROVED" || t.extendStatus === "REJECTED");
+  const overdueTasks = myTasks.filter((t) => isOverdue(t));
 
   const filteredTasks = myTasks.filter((t) => {
     if (topAction === "site" && selectedSite) {
@@ -161,27 +161,27 @@ export default function UserPage() {
           </div>
         )}
 
-        {stats && (
+        {myTasks.length > 0 && (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Tasks</p>
-              <p className="text-2xl font-bold dark:text-white">{stats.totalTasks}</p>
+              <p className="text-2xl font-bold dark:text-white">{myTasks.length}</p>
             </div>
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
               <p className="text-sm text-gray-500 dark:text-gray-400">Pending</p>
-              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.inProgressTasks}</p>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{myTasks.filter((t) => t.status === "ASSIGNED" || t.status === "IN_PROGRESS" || t.status === "ACCEPTED").length}</p>
             </div>
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
               <p className="text-sm text-gray-500 dark:text-gray-400">Completed</p>
-              <p className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.completedTasks}</p>
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">{completedTasks.length}</p>
             </div>
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
               <p className="text-sm text-gray-500 dark:text-gray-400">Pending Review</p>
-              <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{stats.pendingTasks}</p>
+              <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{pendingReviewTasks.length}</p>
             </div>
             <div className="bg-white dark:bg-gray-800 border border-red-200 dark:border-red-700 rounded-lg p-4">
               <p className="text-sm text-gray-500 dark:text-gray-400">Overdue</p>
-              <p className="text-2xl font-bold text-red-600 dark:text-red-400">{myTasks.filter(t => isOverdue(t)).length}</p>
+              <p className="text-2xl font-bold text-red-600 dark:text-red-400">{overdueTasks.length}</p>
             </div>
           </div>
         )}
