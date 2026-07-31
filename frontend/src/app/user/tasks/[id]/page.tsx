@@ -254,6 +254,13 @@ export default function TaskDetailPage() {
                 <button onClick={() => openAttachment(task.completedAttachmentUrl!, `${task.name}_completed`)} className="text-sm text-green-600 dark:text-green-400 underline">View Completion Attachment</button>
               </div>
             )}
+            {task.completedAttachments && task.completedAttachments.length > 1 && (
+              <div className="mt-1 space-y-1">
+                {task.completedAttachments.map((att, i) => (
+                  <button key={i} onClick={() => openAttachment(att, `${task.name}_completed_${i + 1}`)} className="text-xs text-green-600 dark:text-green-400 underline block">Attachment {i + 1}</button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -262,6 +269,14 @@ export default function TaskDetailPage() {
             <h2 className="text-lg font-semibold text-orange-800 dark:text-orange-300">Extension Request Pending</h2>
             <p className="text-sm text-orange-700 dark:text-orange-400">Waiting for admin to approve your extension request.</p>
             {task.extendReason && <p className="text-sm text-orange-600 dark:text-orange-400 mt-1 italic">Reason: {task.extendReason}</p>}
+            {task.extendAttachments && task.extendAttachments.length > 0 && (
+              <div className="mt-2 space-y-1">
+                <p className="text-xs font-medium text-orange-700 dark:text-orange-300">Attached Files:</p>
+                {task.extendAttachments.map((att, i) => (
+                  <button key={i} onClick={() => openAttachment(att, `${task.name}_extend_${i + 1}`)} className="text-xs text-orange-600 dark:text-orange-400 underline block">File {i + 1}</button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -349,15 +364,15 @@ export default function TaskDetailPage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-green-200 dark:border-green-800 p-6 mb-6">
             <form onSubmit={handleComplete} className="space-y-4">
               <h2 className="text-lg font-semibold dark:text-white">Complete Task</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Please provide remarks and optionally attach a file (PDF/JPEG or camera photo).</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Please provide remarks and optionally attach any file (PDF, images, Excel, Word, etc.).</p>
               <textarea value={completeRemarks} onChange={(e) => setCompleteRemarks(e.target.value)} rows={4} className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Describe what you did to complete this task..." required />
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Attach Files (optional)</label>
                 <div className="flex gap-2">
-                  <input ref={completeFileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" multiple onChange={handleFileSelect} className="hidden" />
+                  <input ref={completeFileInputRef} type="file" multiple onChange={handleFileSelect} className="hidden" />
                   <button type="button" onClick={() => completeFileInputRef.current?.click()} className="bg-blue-500 text-white px-3 py-2 rounded-md hover:bg-blue-600 text-sm">
-                    + Add Photo / File
+                    + Add File (Any Type)
                   </button>
                   <input ref={completeCameraInputRef} type="file" accept="image/*" capture="environment" multiple onChange={handleFileSelect} className="hidden" />
                   <button type="button" onClick={() => completeCameraInputRef.current?.click()} className="bg-purple-500 text-white px-3 py-2 rounded-md hover:bg-purple-600 text-sm">
@@ -409,11 +424,11 @@ export default function TaskDetailPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Upload Photos (optional)</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Attach Files (optional)</label>
                 <div className="flex gap-2">
-                  <input ref={extendFileInputRef} type="file" accept=".jpg,.jpeg,.png" multiple onChange={handleExtendFileSelect} className="hidden" />
+                  <input ref={extendFileInputRef} type="file" multiple onChange={handleExtendFileSelect} className="hidden" />
                   <button type="button" onClick={() => extendFileInputRef.current?.click()} className="bg-blue-500 text-white px-3 py-2 rounded-md hover:bg-blue-600 text-sm">
-                    + Add Photo
+                    + Add File (Any Type)
                   </button>
                   <input ref={extendCameraInputRef} type="file" accept="image/*" capture="environment" multiple onChange={handleExtendFileSelect} className="hidden" />
                   <button type="button" onClick={() => extendCameraInputRef.current?.click()} className="bg-purple-500 text-white px-3 py-2 rounded-md hover:bg-purple-600 text-sm">
@@ -424,7 +439,13 @@ export default function TaskDetailPage() {
                   <div className="mt-3 grid grid-cols-3 gap-2">
                     {extendFilePreviews.map((preview, i) => (
                       <div key={i} className="relative">
-                        <img src={preview} alt={`Preview ${i + 1}`} className="w-full h-24 object-cover rounded border border-gray-200 dark:border-gray-700" />
+                        {extendFiles[i]?.type.startsWith("image/") ? (
+                          <img src={preview} alt={`Preview ${i + 1}`} className="w-full h-24 object-cover rounded border border-gray-200 dark:border-gray-700" />
+                        ) : (
+                          <div className="w-full h-24 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-700">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 text-center px-1">{extendFiles[i]?.name}</p>
+                          </div>
+                        )}
                         <button type="button" onClick={() => removeExtendFile(i)} className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600">
                           x
                         </button>
@@ -433,7 +454,7 @@ export default function TaskDetailPage() {
                   </div>
                 )}
                 {extendFiles.length > 0 && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{extendFiles.length} photo(s) selected</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{extendFiles.length} file(s) selected</p>
                 )}
               </div>
 

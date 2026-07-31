@@ -28,21 +28,21 @@ export async function POST(
     let remarks = "";
     let attachmentUrl = "";
     let attachmentType = "";
+    const allAttachments: string[] = [];
 
     if (contentType.includes("multipart/form-data")) {
       const formData = await request.formData();
       remarks = (formData.get("remarks") as string) || "";
-      const attachments: string[] = [];
       const files = formData.getAll("files") as File[];
       for (const file of files) {
         if (file && file.size > 0) {
           const bytes = await file.arrayBuffer();
           const base64 = Buffer.from(bytes).toString("base64");
-          attachments.push(`data:${file.type};base64,${base64}`);
+          allAttachments.push(`data:${file.type};base64,${base64}`);
         }
       }
-      if (attachments.length > 0) {
-        attachmentUrl = attachments[0];
+      if (allAttachments.length > 0) {
+        attachmentUrl = allAttachments[0];
         attachmentType = files[0].type;
       }
     } else {
@@ -78,6 +78,9 @@ export async function POST(
     if (attachmentUrl) {
       updateData.completedAttachmentUrl = attachmentUrl;
       updateData.completedAttachmentType = attachmentType;
+    }
+    if (allAttachments.length > 1) {
+      updateData.completedAttachments = allAttachments;
     }
 
     await update(taskRef, updateData);

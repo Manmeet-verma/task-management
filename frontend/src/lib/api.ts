@@ -179,6 +179,7 @@ export interface Task {
   attachments?: string[];
   completedAttachmentUrl?: string;
   completedAttachmentType?: string;
+  completedAttachments?: string[];
   hasAttachment?: boolean;
   hasCompletedAttachment?: boolean;
   extRejectReason?: string;

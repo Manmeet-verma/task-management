@@ -27,6 +27,52 @@ export default function UserPage() {
   const [topAction, setTopAction] = useState<"create" | "all" | "site">("all");
   const [selectedSite, setSelectedSite] = useState<string>("");
   const [now, setNow] = useState(new Date());
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
+
+  const exportToExcel = () => {
+    const headers = ["#", "Task Name", "Description", "Category", "Site", "Requested By", "Deadline", "Status", "Priority", "Extensions", "Completed Remarks", "Admin Remarks"];
+    const rows = filteredTasks.map((task, idx) => [
+      idx + 1,
+      task.name,
+      task.description || "",
+      task.category,
+      task.siteProject,
+      task.createdById === user?.id ? "You" : (task.assignedByName || task.createdBy?.username || "Unknown"),
+      new Date(task.deadline).toLocaleDateString(),
+      task.status,
+      task.priority,
+      task.extensionCount || 0,
+      task.completedRemarks || "",
+      task.adminRemarks || "",
+    ]);
+
+    const escapeXml = (val: string) => val.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+    const xmlRows = rows.map((row) =>
+      `<Row>${row.map((cell) => `<Cell><Data ss:Type="String">${escapeXml(String(cell))}</Data></Cell>`).join("")}</Row>`
+    ).join("");
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Worksheet ss:Name="My Tasks">
+  <Table>
+   <Row>${headers.map((h) => `<Cell><Data ss:Type="String">${escapeXml(h)}</Data></Cell>`).join("")}</Row>
+   ${xmlRows}
+  </Table>
+ </Worksheet>
+</Workbook>`;
+
+    const blob = new Blob([xml], { type: "application/vnd.ms-excel" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `my_tasks_${new Date().toISOString().split("T")[0]}.xls`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   useEffect(() => {
     if (!loading && (!user || user.role !== "USER")) router.replace("/login");
@@ -131,6 +177,7 @@ export default function UserPage() {
           <h1 className="text-2xl font-bold dark:text-white">My Tasks ({myTasks.length})</h1>
           <div className="flex gap-2">
             <Link href="/tasks/new" className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">+ Create Request</Link>
+            <button onClick={exportToExcel} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm">Download Excel</button>
             <button onClick={() => setShowChangePassword(true)} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 text-sm">Change Password</button>
           </div>
         </div>
@@ -268,124 +315,97 @@ export default function UserPage() {
         ) : filteredTasks.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center py-8">No tasks found.</p>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredTasks.map((task) => {
-              const canAct = !task.locked && task.status !== "COMPLETED" && task.status !== "LOCKED" && task.status !== "REJECTED";
-              const overdue = isOverdue(task);
-              return (
-                <div key={task.id} className={`rounded-lg border p-5 ${overdue ? "bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700" : getStatusColor(task)}`}>
-                  <div className="flex items-start justify-between mb-3">
-                    <h3 className="font-semibold dark:text-white">{task.name}</h3>
-                    <div className="flex items-center gap-2">
-                      {overdue && <span className="text-xs bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-300 px-2 py-0.5 rounded-full font-medium">Overdue</span>}
-                      <StatusBadge status={task.status} />
-                    </div>
-                  </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1 mb-4">
-                    <p>Category: {task.category}</p>
-                    <p>Site: {task.siteProject}</p>
-                    <p className="text-indigo-600 dark:text-indigo-400">Requested By: {task.createdById === user?.id ? "You" : (task.assignedByName || task.createdBy?.username || "Unknown")}</p>
-                    {task.createdById === user?.id && task.assignedTo && (
-                      <p className="text-blue-600 dark:text-blue-400">Assigned To: {task.assignedTo.username}</p>
-                    )}
-                    <p>Deadline: {new Date(task.deadline).toLocaleDateString()}</p>
-                    {task.userDeadline && <p>Your Deadline: {new Date(task.userDeadline).toLocaleDateString()}</p>}
-                    {task.extensionCount > 0 && <p className="text-red-600 dark:text-red-400">Extensions: {task.extensionCount}</p>}
-                    {task.description && <p className="text-gray-500 dark:text-gray-500 text-xs italic line-clamp-2">{task.description}</p>}
-                  </div>
-
-                  {task.status === "REJECTED" && task.rejectReason && (
-                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-2 mb-3">
-                      <p className="text-xs font-medium text-red-700 dark:text-red-300">Rejection Reason:</p>
-                      <p className="text-xs text-red-600 dark:text-red-400">{task.rejectReason}</p>
-                    </div>
-                  )}
-
-                  {task.status === "PENDING" && (
-                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded p-2 mb-3">
-                      <p className="text-xs text-yellow-700 dark:text-yellow-300">Waiting for admin review...</p>
-                    </div>
-                  )}
-
-                  {task.status === "COMPLETED" && !task.locked && (
-                    <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded p-2 mb-3">
-                      <p className="text-xs text-green-700 dark:text-green-300">Completed. Waiting for admin to verify...</p>
-                      {task.completedRemarks && (
-                        <p className="text-xs text-green-600 dark:text-green-400 mt-1 italic line-clamp-2">Remarks: {task.completedRemarks}</p>
-                      )}
-                    </div>
-                  )}
-
-                  {task.extendStatus === "PENDING" && (
-                    <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded p-2 mb-3">
-                      <p className="text-xs text-orange-700 dark:text-orange-300">Extension request pending...</p>
-                      {task.extendReason && <p className="text-xs text-orange-600 dark:text-orange-400 mt-1 italic">Reason: {task.extendReason}</p>}
-                    </div>
-                  )}
-
-                  {task.extendStatus === "REJECTED" && (
-                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-2 mb-3">
-                      <p className="text-xs text-red-700 dark:text-red-300">Extension request rejected by {task.extRejectedBy || "Admin"}.</p>
-                      {task.extRejectReason && <p className="text-xs text-red-600 dark:text-red-400 mt-1 italic">Reason: {task.extRejectReason}</p>}
-                    </div>
-                  )}
-
-                  {task.reassignReason && (
-                    <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded p-2 mb-3">
-                      <p className="text-xs text-orange-700 dark:text-orange-300">Reassigned by {task.reassignedBy || "Admin"}.</p>
-                      <p className="text-xs text-orange-600 dark:text-orange-400 mt-1 italic">Reason: {task.reassignReason}</p>
-                    </div>
-                  )}
-
-                  {task.adminRemarks && (
-                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-2 mb-3">
-                      <p className="text-xs font-medium text-blue-700 dark:text-blue-300">Admin Remarks:</p>
-                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 italic">{task.adminRemarks}</p>
-                    </div>
-                  )}
-
-                  {task.lastExtReason && task.extendStatus !== "PENDING" && (
-                    <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-2 mb-3">
-                      <p className="text-xs text-gray-600 dark:text-gray-400">Last Extension Reason: {task.lastExtReason}</p>
-                    </div>
-                  )}
-
-                  {task.locked && (
-                    <div className="bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded p-2 mb-3">
-                      <p className="text-xs text-gray-600 dark:text-gray-400">This task is completed(locked). No changes allowed.</p>
-                    </div>
-                  )}
-
-                  {task.hasAttachment && (
-                    <div className="mb-3">
-                      <button onClick={async () => { if (!task.attachmentUrl) { const full = await api.tasks.getById(task.id); if (full.attachmentUrl) openAttachment(full.attachmentUrl, `${task.name}_attachment`); } else { openAttachment(task.attachmentUrl, `${task.name}_attachment`); } }} className="text-xs text-blue-600 dark:text-blue-400 underline">View Attachment</button>
-                    </div>
-                  )}
-
-                  {task.hasCompletedAttachment && (
-                    <div className="mb-3">
-                      <button onClick={async () => { if (!task.completedAttachmentUrl) { const full = await api.tasks.getById(task.id); if (full.completedAttachmentUrl) openAttachment(full.completedAttachmentUrl, `${task.name}_completed`); } else { openAttachment(task.completedAttachmentUrl, `${task.name}_completed`); } }} className="text-xs text-green-600 dark:text-green-400 underline">View Completion Attachment</button>
-                    </div>
-                  )}
-
-                  {task.voiceNoteUrl && (
-                    <div className="mb-3">
-                      <p className="text-xs text-purple-600 dark:text-purple-400 mb-1">Voice Note:</p>
-                      <audio controls src={task.voiceNoteUrl} className="w-full" />
-                    </div>
-                  )}
-
-                  {canAct && task.assignedToId === user?.id && (
-                    <Link href={`/user/tasks/${task.id}`} className="block w-full text-center bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm font-medium">
-                      Open Task
-                    </Link>
-                  )}
-                  {task.createdById === user?.id && task.assignedToId !== user?.id && (
-                    <div className="text-center text-xs text-gray-500 dark:text-gray-400 italic py-2">You created this task</div>
-                  )}
-                </div>
-              );
-            })}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="bg-gray-100 dark:bg-gray-800 text-left">
+                  <th className="px-3 py-2 border dark:border-gray-700 font-medium">#</th>
+                  <th className="px-3 py-2 border dark:border-gray-700 font-medium">Task Name</th>
+                  <th className="px-3 py-2 border dark:border-gray-700 font-medium">Category</th>
+                  <th className="px-3 py-2 border dark:border-gray-700 font-medium">Site</th>
+                  <th className="px-3 py-2 border dark:border-gray-700 font-medium">Requested By</th>
+                  <th className="px-3 py-2 border dark:border-gray-700 font-medium">Deadline</th>
+                  <th className="px-3 py-2 border dark:border-gray-700 font-medium">Status</th>
+                  <th className="px-3 py-2 border dark:border-gray-700 font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredTasks.map((task, idx) => {
+                  const canAct = !task.locked && task.status !== "COMPLETED" && task.status !== "LOCKED" && task.status !== "REJECTED";
+                  const overdue = isOverdue(task);
+                  return (
+                    <tr key={task.id} className={`${overdue ? "bg-red-50 dark:bg-red-900/20" : "bg-white dark:bg-gray-900"} hover:bg-gray-50 dark:hover:bg-gray-800`}>
+                      <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-300">{idx + 1}</td>
+                      <td className="px-3 py-2 border dark:border-gray-700">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium dark:text-white">{task.name}</span>
+                          {overdue && <span className="text-[10px] bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-300 px-1.5 py-0.5 rounded-full font-medium">Overdue</span>}
+                        </div>
+                        {task.description && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">{task.description}</p>}
+                      </td>
+                      <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-300">{task.category}</td>
+                      <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-300">{task.siteProject}</td>
+                      <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-300">
+                        {task.createdById === user?.id ? "You" : (task.assignedByName || task.createdBy?.username || "Unknown")}
+                      </td>
+                      <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-300">
+                        <div>{new Date(task.deadline).toLocaleDateString()}</div>
+                        {task.userDeadline && <div className="text-xs text-gray-500 dark:text-gray-400">Your: {new Date(task.userDeadline).toLocaleDateString()}</div>}
+                        {task.extensionCount > 0 && <div className="text-xs text-red-600 dark:text-red-400">Ext: {task.extensionCount}</div>}
+                      </td>
+                      <td className="px-3 py-2 border dark:border-gray-700">
+                        <StatusBadge status={task.status} />
+                        {task.extendStatus === "PENDING" && <span className="block text-[10px] text-orange-600 dark:text-orange-400 mt-0.5">Ext Pending</span>}
+                        {task.reassignReason && <span className="block text-[10px] text-orange-600 dark:text-orange-400 mt-0.5">Reassigned</span>}
+                      </td>
+                      <td className="px-3 py-2 border dark:border-gray-700">
+                        <div className="flex gap-1 flex-wrap">
+                          {task.hasAttachment && (
+                            <button onClick={async () => { if (!task.attachmentUrl) { const full = await api.tasks.getById(task.id); if (full.attachmentUrl) openAttachment(full.attachmentUrl, `${task.name}_attachment`); } else { openAttachment(task.attachmentUrl, `${task.name}_attachment`); } }} className="text-[10px] text-blue-600 dark:text-blue-400 underline">Attachment</button>
+                          )}
+                          {task.hasCompletedAttachment && (
+                            <button onClick={async () => { if (!task.completedAttachmentUrl) { const full = await api.tasks.getById(task.id); if (full.completedAttachmentUrl) openAttachment(full.completedAttachmentUrl, `${task.name}_completed`); } else { openAttachment(task.completedAttachmentUrl, `${task.name}_completed`); } }} className="text-[10px] text-green-600 dark:text-green-400 underline">Complete File</button>
+                          )}
+                          {task.voiceNoteUrl && (
+                            <button onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)} className="text-[10px] text-purple-600 dark:text-purple-400 underline">Voice</button>
+                          )}
+                          {task.adminRemarks && (
+                            <button onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)} className="text-[10px] text-blue-600 dark:text-blue-400 underline">Remarks</button>
+                          )}
+                          {(task.extendReason || task.lastExtReason || task.completedRemarks || task.reassignReason || task.extRejectReason || task.pendingReason || task.rejectReason || (task.history && task.history.length > 0)) && (
+                            <button onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)} className="text-[10px] text-gray-600 dark:text-gray-400 underline">History</button>
+                          )}
+                          {canAct && task.assignedToId === user?.id && (
+                            <Link href={`/user/tasks/${task.id}`} className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded hover:bg-indigo-700">Open</Link>
+                          )}
+                        </div>
+                        {expandedTaskId === task.id && (
+                          <div className="mt-2 space-y-1 text-xs">
+                            {task.adminRemarks && <p className="text-blue-600 dark:text-blue-400"><span className="font-medium">Admin Remarks:</span> {task.adminRemarks}</p>}
+                            {task.voiceNoteUrl && <p className="text-purple-600 dark:text-purple-400"><span className="font-medium">Voice Note:</span> <audio controls src={task.voiceNoteUrl} className="inline-block ml-2 max-w-[200px]" /></p>}
+                            {task.completedRemarks && <p className="text-green-600 dark:text-green-400"><span className="font-medium">Completed Remarks:</span> {task.completedRemarks}</p>}
+                            {task.extendReason && <p className="text-orange-600 dark:text-orange-400"><span className="font-medium">Extend Reason:</span> {task.extendReason}</p>}
+                            {task.lastExtReason && <p className="text-gray-600 dark:text-gray-400"><span className="font-medium">Last Ext Reason:</span> {task.lastExtReason}</p>}
+                            {task.reassignReason && <p className="text-orange-600 dark:text-orange-400"><span className="font-medium">Reassign Reason:</span> {task.reassignReason} {task.reassignedBy && `by ${task.reassignedBy}`}</p>}
+                            {task.rejectReason && <p className="text-red-600 dark:text-red-400"><span className="font-medium">Reject Reason:</span> {task.rejectReason}</p>}
+                            {task.extRejectReason && <p className="text-red-600 dark:text-red-400"><span className="font-medium">Ext Reject Reason:</span> {task.extRejectReason} {task.extRejectedBy && `by ${task.extRejectedBy}`}</p>}
+                            {task.pendingReason && <p className="text-yellow-600 dark:text-yellow-400"><span className="font-medium">Pending Reason:</span> {task.pendingReason}</p>}
+                            {task.history && task.history.length > 0 && (
+                              <div>
+                                <p className="font-medium dark:text-white">History:</p>
+                                {task.history.map((h: any, i: number) => (
+                                  <p key={i} className="text-gray-600 dark:text-gray-400 ml-2">{h.action} by {h.by || "System"} {h.timestamp ? `at ${new Date(h.timestamp).toLocaleString()}` : ""} {h.note ? `- ${h.note}` : ""}</p>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

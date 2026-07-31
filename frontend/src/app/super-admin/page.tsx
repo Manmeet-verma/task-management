@@ -350,51 +350,51 @@ export default function SuperAdminPage() {
         ) : tab === "stats" ? (
           <div className="space-y-6">
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              <button onClick={() => { setTab("all"); setPage(1); }} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer">
                 <p className="text-sm text-gray-500 dark:text-gray-400">Total Tasks</p>
                 <p className="text-2xl font-bold dark:text-white">{stats?.totalTasks || 0}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              </button>
+              <button onClick={() => { setTab("all"); setFilterStatus("COMPLETED"); setPage(1); }} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer">
                 <p className="text-sm text-gray-500 dark:text-gray-400">Completed</p>
                 <p className="text-2xl font-bold text-green-600">{stats?.completedTasks || 0}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              </button>
+              <button onClick={() => { setTab("pending"); setPendingFilter("general"); setPage(1); }} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer">
                 <p className="text-sm text-gray-500 dark:text-gray-400">Pending</p>
                 <p className="text-2xl font-bold text-yellow-600">{stats?.pendingTasks || 0}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 border border-red-200 dark:border-red-700 rounded-lg p-4">
+              </button>
+              <button onClick={() => { setTab("pending"); setPendingFilter("overdue"); setPage(1); }} className="bg-white dark:bg-gray-800 border border-red-200 dark:border-red-700 rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer">
                 <p className="text-sm text-gray-500 dark:text-gray-400">Overdue</p>
                 <p className="text-2xl font-bold text-red-600">{stats?.overdueTasks || 0}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              </button>
+              <button onClick={() => { setTab("all"); setFilterStatus("LOCKED"); setPage(1); }} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer">
                 <p className="text-sm text-gray-500 dark:text-gray-400">Locked</p>
                 <p className="text-2xl font-bold text-gray-600">{stats?.lockedTasks || 0}</p>
-              </div>
+              </button>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              <button onClick={() => { setTab("users"); setPage(1); }} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer">
                 <p className="text-sm text-gray-500 dark:text-gray-400">Total Users</p>
                 <p className="text-2xl font-bold dark:text-white">{stats?.totalUsers || 0}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              </button>
+              <button onClick={() => { setTab("admins"); setPage(1); }} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer">
                 <p className="text-sm text-gray-500 dark:text-gray-400">Admins</p>
                 <p className="text-2xl font-bold text-indigo-600">{stats?.totalAdmins || 0}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              </button>
+              <button onClick={() => { setTab("pending"); setPendingFilter("extension"); setPage(1); }} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer">
                 <p className="text-sm text-gray-500 dark:text-gray-400">Extension Requests</p>
                 <p className="text-2xl font-bold text-orange-600">{stats?.extensionRequests || 0}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              </button>
+              <button onClick={() => { setTab("users"); setPage(1); }} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer">
                 <p className="text-sm text-gray-500 dark:text-gray-400">Regular Users</p>
                 <p className="text-2xl font-bold dark:text-white">{stats?.totalRegularUsers || 0}</p>
-              </div>
+              </button>
             </div>
             {stats?.tasksByAdmin && stats.tasksByAdmin.length > 0 && (
               <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
                 <h3 className="text-lg font-semibold mb-4 dark:text-white">Tasks by Admin</h3>
                 <div className="space-y-3">
                   {stats.tasksByAdmin.map((admin) => (
-                    <div key={admin.adminId} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-md">
+                    <button key={admin.adminId} onClick={() => { setTab("all"); setFilterAssignedBy(admin.adminId); setPage(1); }} className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer text-left">
                       <div>
                         <p className="font-medium dark:text-white">{admin.username}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">{admin.taskCount} tasks created</p>
@@ -403,7 +403,7 @@ export default function SuperAdminPage() {
                         <p className="text-sm text-green-600">{admin.completedCount} completed</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">{admin.taskCount > 0 ? Math.round((admin.completedCount / admin.taskCount) * 100) : 0}% completion</p>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -639,6 +639,12 @@ export default function SuperAdminPage() {
                               {task.rejectReason && <p className="text-red-600 dark:text-red-400"><span className="font-medium">Reject Reason:</span> {task.rejectReason}</p>}
                               {task.attachmentUrl && <p className="text-blue-600 dark:text-blue-400"><span className="font-medium">Attachment:</span> <button onClick={() => openAttachment(task.attachmentUrl!, `${task.name}_attachment`)} className="underline">View</button></p>}
                               {task.completedAttachmentUrl && <p className="text-green-600 dark:text-green-400"><span className="font-medium">Completion Attachment:</span> <button onClick={() => openAttachment(task.completedAttachmentUrl!, `${task.name}_completed`)} className="underline">View</button></p>}
+                              {task.completedAttachments && task.completedAttachments.length > 1 && task.completedAttachments.map((att, i) => (
+                                <p key={i} className="text-green-600 dark:text-green-400"><span className="font-medium">Attachment {i + 2}:</span> <button onClick={() => openAttachment(att, `${task.name}_completed_${i + 2}`)} className="underline">View</button></p>
+                              ))}
+                              {task.extendAttachments && task.extendAttachments.length > 0 && task.extendAttachments.map((att, i) => (
+                                <p key={i} className="text-orange-600 dark:text-orange-400"><span className="font-medium">Extend File {i + 1}:</span> <button onClick={() => openAttachment(att, `${task.name}_extend_${i + 1}`)} className="underline">View</button></p>
+                              ))}
                               {task.voiceNoteUrl && <p className="text-purple-600 dark:text-purple-400"><span className="font-medium">Voice Note:</span> <audio controls src={task.voiceNoteUrl} className="inline-block ml-2 max-w-xs" /></p>}
                               <div className="mt-2">
                                 <VoiceRecorder taskId={task.id} onSent={loadData} />
