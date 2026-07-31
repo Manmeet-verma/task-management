@@ -579,10 +579,12 @@ export default function SuperAdminPage() {
                             {!task.locked && task.status !== "LOCKED" && task.status !== "COMPLETED" && (
                               <button onClick={() => { setReassigningId(task.id); setReassignUserId(""); setReassignReason(""); }} className="text-xs text-orange-600 hover:underline px-1">Reassign</button>
                             )}
-                            {isOverdue(task) && (
+                            {isOverdue(task) && task.status !== "COMPLETED" && task.status !== "LOCKED" && (
                               <button onClick={() => { setRemarksTaskId(task.id); setRemarksText(task.adminRemarks || ""); }} className="text-xs text-blue-600 hover:underline px-1">Remarks</button>
                             )}
-                            <button onClick={() => { setExpandedTaskId(expandedTaskId === task.id ? null : task.id); }} className="text-xs text-purple-600 hover:underline px-1">Voice Note</button>
+                            {task.status !== "COMPLETED" && task.status !== "LOCKED" && (
+                              <button onClick={() => { setExpandedTaskId(expandedTaskId === task.id ? null : task.id); }} className="text-xs text-purple-600 hover:underline px-1">Voice Note</button>
+                            )}
                             <button onClick={() => handleDeleteTask(task.id)} className="text-xs text-red-600 hover:underline px-1">Delete</button>
                             {(task.extendReason || task.lastExtReason || task.completedRemarks || task.reassignReason || task.extRejectReason || task.pendingReason || task.rejectReason || task.adminRemarks || task.voiceNoteUrl || (task.history && task.history.length > 0)) && (
                               <button onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)} className="text-xs text-blue-600 hover:underline px-1">
