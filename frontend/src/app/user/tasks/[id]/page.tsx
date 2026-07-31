@@ -22,8 +22,8 @@ export default function TaskDetailPage() {
   const [extendReason, setExtendReason] = useState("");
   const [completing, setCompleting] = useState(false);
   const [extendSubmitting, setExtendSubmitting] = useState(false);
-  const [completeFile, setCompleteFile] = useState<File | null>(null);
-  const [completeFilePreview, setCompleteFilePreview] = useState<string>("");
+  const [completeFiles, setCompleteFiles] = useState<File[]>([]);
+  const [completeFilePreviews, setCompleteFilePreviews] = useState<string[]>([]);
   const completeFileInputRef = useRef<HTMLInputElement>(null);
   const completeCameraInputRef = useRef<HTMLInputElement>(null);
 
@@ -62,13 +62,21 @@ export default function TaskDetailPage() {
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setCompleteFile(file);
+    const files = e.target.files;
+    if (!files) return;
+    const newFiles = Array.from(files);
+    setCompleteFiles(prev => [...prev, ...newFiles]);
+    newFiles.forEach(file => {
       const reader = new FileReader();
-      reader.onload = (ev) => setCompleteFilePreview(ev.target?.result as string);
+      reader.onload = (ev) => setCompleteFilePreviews(prev => [...prev, ev.target?.result as string]);
       reader.readAsDataURL(file);
-    }
+    });
+    e.target.value = "";
+  };
+
+  const removeCompleteFile = (index: number) => {
+    setCompleteFiles(prev => prev.filter((_, i) => i !== index));
+    setCompleteFilePreviews(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleExtendFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -93,18 +101,20 @@ export default function TaskDetailPage() {
     if (!completeRemarks.trim()) { alert("Please provide remarks"); return; }
     setCompleting(true);
     try {
-      if (completeFile) {
+      if (completeFiles.length > 0) {
         const formData = new FormData();
         formData.append("remarks", completeRemarks.trim());
-        formData.append("file", completeFile);
+        for (const file of completeFiles) {
+          formData.append("files", file);
+        }
         await api.submissions.submit(taskId, formData);
         await api.tasks.complete(taskId, completeRemarks.trim());
       } else {
         await api.tasks.complete(taskId, completeRemarks.trim());
       }
       setCompleteRemarks("");
-      setCompleteFile(null);
-      setCompleteFilePreview("");
+      setCompleteFiles([]);
+      setCompleteFilePreviews([]);
       setShowCompleteForm(false);
       loadTask();
     } catch (err) { console.error(err); }
@@ -343,31 +353,43 @@ export default function TaskDetailPage() {
               <textarea value={completeRemarks} onChange={(e) => setCompleteRemarks(e.target.value)} rows={4} className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Describe what you did to complete this task..." required />
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Attach File (optional)</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Attach Files (optional)</label>
                 <div className="flex gap-2">
-                  <input ref={completeFileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileSelect} className="hidden" />
+                  <input ref={completeFileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" multiple onChange={handleFileSelect} className="hidden" />
                   <button type="button" onClick={() => completeFileInputRef.current?.click()} className="bg-blue-500 text-white px-3 py-2 rounded-md hover:bg-blue-600 text-sm">
-                    Upload PDF/Image
+                    + Add Photo / File
                   </button>
-                  <input ref={completeCameraInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileSelect} className="hidden" />
+                  <input ref={completeCameraInputRef} type="file" accept="image/*" capture="environment" multiple onChange={handleFileSelect} className="hidden" />
                   <button type="button" onClick={() => completeCameraInputRef.current?.click()} className="bg-purple-500 text-white px-3 py-2 rounded-md hover:bg-purple-600 text-sm">
                     Camera
                   </button>
                 </div>
-                {completeFile && (
-                  <div className="mt-2">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Selected: {completeFile.name}</p>
-                    {completeFilePreview && completeFile.type.startsWith("image/") && (
-                      <img src={completeFilePreview} alt="Preview" className="mt-2 max-h-32 rounded border border-gray-200 dark:border-gray-700" />
-                    )}
-                    <button type="button" onClick={() => { setCompleteFile(null); setCompleteFilePreview(""); }} className="text-xs text-red-600 hover:underline mt-1">Remove</button>
+                {completeFiles.length > 0 && (
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {completeFilePreviews.map((preview, i) => (
+                      <div key={i} className="relative">
+                        {completeFiles[i]?.type.startsWith("image/") ? (
+                          <img src={preview} alt={`Preview ${i + 1}`} className="w-full h-24 object-cover rounded border border-gray-200 dark:border-gray-700" />
+                        ) : (
+                          <div className="w-full h-24 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-700">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 text-center px-1">{completeFiles[i]?.name}</p>
+                          </div>
+                        )}
+                        <button type="button" onClick={() => removeCompleteFile(i)} className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600">
+                          x
+                        </button>
+                      </div>
+                    ))}
                   </div>
+                )}
+                {completeFiles.length > 0 && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{completeFiles.length} file(s) selected</p>
                 )}
               </div>
 
               <div className="flex gap-2">
                 <button type="submit" disabled={completing} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-50">{completing ? "Completing..." : "Submit & Complete"}</button>
-                <button type="button" onClick={() => { setShowCompleteForm(false); setCompleteRemarks(""); setCompleteFile(null); setCompleteFilePreview(""); }} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">Cancel</button>
+                <button type="button" onClick={() => { setShowCompleteForm(false); setCompleteRemarks(""); setCompleteFiles([]); setCompleteFilePreviews([]); }} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">Cancel</button>
               </div>
             </form>
           </div>

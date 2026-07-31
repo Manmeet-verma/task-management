@@ -176,6 +176,7 @@ export interface Task {
   assignedByName?: string;
   attachmentUrl?: string;
   attachmentType?: string;
+  attachments?: string[];
   completedAttachmentUrl?: string;
   completedAttachmentType?: string;
   hasAttachment?: boolean;

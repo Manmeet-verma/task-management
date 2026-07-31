@@ -24,8 +24,8 @@ export default function NewTaskPage() {
   const [customSite, setCustomSite] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [taskFile, setTaskFile] = useState<File | null>(null);
-  const [taskFilePreview, setTaskFilePreview] = useState<string>("");
+  const [taskFiles, setTaskFiles] = useState<File[]>([]);
+  const [taskFilePreviews, setTaskFilePreviews] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
@@ -40,13 +40,21 @@ export default function NewTaskPage() {
   if (loading || !user) return null;
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setTaskFile(file);
+    const files = e.target.files;
+    if (!files) return;
+    const newFiles = Array.from(files);
+    setTaskFiles(prev => [...prev, ...newFiles]);
+    newFiles.forEach(file => {
       const reader = new FileReader();
-      reader.onload = (ev) => setTaskFilePreview(ev.target?.result as string);
+      reader.onload = (ev) => setTaskFilePreviews(prev => [...prev, ev.target?.result as string]);
       reader.readAsDataURL(file);
-    }
+    });
+    e.target.value = "";
+  };
+
+  const removeTaskFile = (index: number) => {
+    setTaskFiles(prev => prev.filter((_, i) => i !== index));
+    setTaskFilePreviews(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -62,7 +70,9 @@ export default function NewTaskPage() {
       formData.append("priority", form.priority);
       formData.append("description", form.description || "");
       if (assignedToId) formData.append("assignedToId", assignedToId);
-      if (taskFile) formData.append("file", taskFile);
+      for (const file of taskFiles) {
+        formData.append("files", file);
+      }
 
       const token = localStorage.getItem("token");
       const res = await fetch("/api/tasks", {
@@ -159,30 +169,42 @@ export default function NewTaskPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Attach File (optional)</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Attach Files (optional)</label>
             <div className="flex gap-2">
-              <input ref={fileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileSelect} className="hidden" />
+              <input ref={fileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" multiple onChange={handleFileSelect} className="hidden" />
               <button type="button" onClick={() => fileInputRef.current?.click()} className="bg-blue-500 text-white px-3 py-2 rounded-md hover:bg-blue-600 text-sm">
-                Upload PDF/Image
+                + Add Photo / File
               </button>
-              <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileSelect} className="hidden" />
+              <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" multiple onChange={handleFileSelect} className="hidden" />
               <button type="button" onClick={() => cameraInputRef.current?.click()} className="bg-purple-500 text-white px-3 py-2 rounded-md hover:bg-purple-600 text-sm">
                 Camera
               </button>
             </div>
-            {taskFile && (
-              <div className="mt-2">
-                <p className="text-sm text-gray-600 dark:text-gray-400">Selected: {taskFile.name}</p>
-                {taskFilePreview && taskFile.type.startsWith("image/") && (
-                  <img src={taskFilePreview} alt="Preview" className="mt-2 max-h-32 rounded border border-gray-200 dark:border-gray-700" />
-                )}
-                <button type="button" onClick={() => { setTaskFile(null); setTaskFilePreview(""); }} className="text-xs text-red-600 hover:underline mt-1">Remove</button>
+            {taskFiles.length > 0 && (
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                {taskFilePreviews.map((preview, i) => (
+                  <div key={i} className="relative">
+                    {taskFiles[i]?.type.startsWith("image/") ? (
+                      <img src={preview} alt={`Preview ${i + 1}`} className="w-full h-24 object-cover rounded border border-gray-200 dark:border-gray-700" />
+                    ) : (
+                      <div className="w-full h-24 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-700">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 text-center px-1">{taskFiles[i]?.name}</p>
+                      </div>
+                    )}
+                    <button type="button" onClick={() => removeTaskFile(i)} className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600">
+                      x
+                    </button>
+                  </div>
+                ))}
               </div>
+            )}
+            {taskFiles.length > 0 && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{taskFiles.length} file(s) selected</p>
             )}
           </div>
           <div className="flex gap-3">
             <button type="submit" disabled={saving} className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 disabled:opacity-50">
-              {saving ? "Creating..." : "Create Request"}
+              {saving ? "Creating..." : "Create Task"}
             </button>
             <button type="button" onClick={() => router.back()} className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600">
               Cancel

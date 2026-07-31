@@ -33,26 +33,36 @@ export async function POST(
 
     const formData = await request.formData();
     const comments = (formData.get("comments") as string) || "";
-    const file = formData.get("report") as File | null;
+    const remarks = (formData.get("remarks") as string) || "";
 
     let reportUrl: string | null = null;
-    if (file) {
-      const bytes = await file.arrayBuffer();
-      const base64 = Buffer.from(bytes).toString("base64");
-      reportUrl = `data:${file.type};base64,${base64}`;
+    const attachments: string[] = [];
+    const files = formData.getAll("files") as File[];
+    for (const file of files) {
+      if (file && file.size > 0) {
+        const bytes = await file.arrayBuffer();
+        const base64 = Buffer.from(bytes).toString("base64");
+        const dataUrl = `data:${file.type};base64,${base64}`;
+        attachments.push(dataUrl);
+        if (!reportUrl) reportUrl = dataUrl;
+      }
     }
 
     const newSubRef = push(ref(db, "submissions"));
-    const submission = {
+    const submission: Record<string, any> = {
       id: newSubRef.key,
       taskId: id,
       userId: user.id,
       reportUrl,
-      comments,
+      comments: comments || remarks,
       status: "SUBMITTED",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+
+    if (attachments.length > 1) {
+      submission.attachments = attachments;
+    }
 
     await set(newSubRef, submission);
     await update(taskRef, {

@@ -28,11 +28,12 @@ export async function GET(request: Request) {
 
     const enriched = tasks.map((task: any) => {
       const assignedToIds = task.assignedToIds || [];
-      const { attachmentUrl, attachmentType, completedAttachmentUrl, completedAttachmentType, ...rest } = task;
+      const { attachmentUrl, attachmentType, completedAttachmentUrl, completedAttachmentType, attachments, ...rest } = task;
       return {
         ...rest,
         hasAttachment: !!attachmentUrl,
         hasCompletedAttachment: !!completedAttachmentUrl,
+        hasAttachments: !!(attachments && attachments.length > 0),
         createdBy: users[task.createdById] ? { id: task.createdById, username: users[task.createdById].username } : null,
         assignedTo: task.assignedToId && users[task.assignedToId] ? { id: task.assignedToId, username: users[task.assignedToId].username } : null,
         assignedToUsers: assignedToIds
@@ -66,18 +67,27 @@ export async function POST(request: Request) {
       taskData.description = formData.get("description") as string;
       taskData.assignedToId = formData.get("assignedToId") as string;
 
-      const file = formData.get("file") as File | null;
-      if (file && file.size > 0) {
-        const bytes = await file.arrayBuffer();
-        const base64 = Buffer.from(bytes).toString("base64");
-        taskData.attachmentUrl = `data:${file.type};base64,${base64}`;
-        taskData.attachmentType = file.type;
+      const attachments: string[] = [];
+      const files = formData.getAll("files") as File[];
+      for (const file of files) {
+        if (file && file.size > 0) {
+          const bytes = await file.arrayBuffer();
+          const base64 = Buffer.from(bytes).toString("base64");
+          attachments.push(`data:${file.type};base64,${base64}`);
+        }
+      }
+      if (attachments.length > 0) {
+        taskData.attachmentUrl = attachments[0];
+        taskData.attachmentType = files[0].type;
+        if (attachments.length > 1) {
+          taskData.attachments = attachments;
+        }
       }
     } else {
       taskData = await request.json();
     }
 
-    const { name, category, siteProject, deadline, priority, description, assignedToId, attachmentUrl, attachmentType } = taskData;
+    const { name, category, siteProject, deadline, priority, description, assignedToId, attachmentUrl, attachmentType, attachments } = taskData;
     const newTaskRef = push(ref(db, "tasks"));
     const taskId = newTaskRef.key!;
 
@@ -103,6 +113,9 @@ export async function POST(request: Request) {
     if (attachmentUrl) {
       task.attachmentUrl = attachmentUrl;
       task.attachmentType = attachmentType || "";
+    }
+    if (attachments && attachments.length > 1) {
+      task.attachments = attachments;
     }
 
     if (ids.length > 0) {

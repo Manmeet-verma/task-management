@@ -32,12 +32,18 @@ export async function POST(
     if (contentType.includes("multipart/form-data")) {
       const formData = await request.formData();
       remarks = (formData.get("remarks") as string) || "";
-      const file = formData.get("file") as File | null;
-      if (file && file.size > 0) {
-        const bytes = await file.arrayBuffer();
-        const base64 = Buffer.from(bytes).toString("base64");
-        attachmentUrl = `data:${file.type};base64,${base64}`;
-        attachmentType = file.type;
+      const attachments: string[] = [];
+      const files = formData.getAll("files") as File[];
+      for (const file of files) {
+        if (file && file.size > 0) {
+          const bytes = await file.arrayBuffer();
+          const base64 = Buffer.from(bytes).toString("base64");
+          attachments.push(`data:${file.type};base64,${base64}`);
+        }
+      }
+      if (attachments.length > 0) {
+        attachmentUrl = attachments[0];
+        attachmentType = files[0].type;
       }
     } else {
       const body = await request.json();

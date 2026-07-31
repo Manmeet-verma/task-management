@@ -201,7 +201,7 @@ export default function SuperAdminPage() {
       if (t.siteProject !== selectedSite) return false;
     }
     if (tab === "pending") {
-      let matchTab = t.status === "PENDING" || t.extendStatus === "PENDING" || (t.reassignReason && t.status !== "LOCKED");
+      let matchTab: boolean = t.status === "PENDING" || t.extendStatus === "PENDING" || (!!t.reassignReason && t.status !== "LOCKED");
       if (pendingFilter === "general") matchTab = t.status === "PENDING" && !isOverdue(t) && !t.reassignReason;
       else if (pendingFilter === "overdue") matchTab = isOverdue(t) && t.status !== "COMPLETED" && t.status !== "LOCKED";
       else if (pendingFilter === "extension") matchTab = t.extendStatus === "PENDING";

@@ -192,12 +192,12 @@ export default function AdminPage() {
     if (topAction === "site" && selectedSite) {
       if (t.siteProject !== selectedSite) return false;
     }
-    let matchTab = true;
+    let matchTab: boolean = true;
     if (tab === "created") matchTab = t.createdById === user?.id;
     else if (tab === "assigned") matchTab = t.assignedToId === user?.id;
     else if (tab === "completed") matchTab = t.status === "COMPLETED" || t.status === "LOCKED";
     else if (tab === "pending") {
-      matchTab = t.status === "PENDING" || t.extendStatus === "PENDING" || (t.reassignReason && t.status !== "LOCKED");
+      matchTab = t.status === "PENDING" || t.extendStatus === "PENDING" || (!!t.reassignReason && t.status !== "LOCKED");
       if (pendingFilter === "general") matchTab = t.status === "PENDING" && !isOverdue(t) && !t.reassignReason;
       else if (pendingFilter === "overdue") matchTab = isOverdue(t) && t.status !== "COMPLETED" && t.status !== "LOCKED";
       else if (pendingFilter === "extension") matchTab = t.extendStatus === "PENDING";
