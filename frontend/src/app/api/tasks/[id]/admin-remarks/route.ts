@@ -43,7 +43,7 @@ export async function POST(
     });
 
     if (task.assignedToId) {
-      await createNotification(task.assignedToId, `Admin has sent you a message for "${task.name}": "${remarks.trim()}"`, "ADMIN_REMARKS", id);
+      await createNotification(task.assignedToId, `${user.username} has sent you a message for "${task.name}": "${remarks.trim()}"`, "ADMIN_REMARKS", id);
     }
 
     const updated = (await get(taskRef)).val();

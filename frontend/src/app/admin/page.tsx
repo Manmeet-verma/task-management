@@ -471,9 +471,6 @@ export default function AdminPage() {
                         <td className="px-4 py-3"><StatusBadge status={task.status} /></td>
                         <td className="px-4 py-3">
                           <div className="flex gap-1 flex-wrap items-center">
-                            {!canManage && (
-                              <span className="text-xs text-gray-400 italic">View Only</span>
-                            )}
                             {!task.locked && task.status !== "LOCKED" && task.status !== "COMPLETED" && canManage && (
                               <Link href={`/admin/tasks/${task.id}/edit`} className="text-xs text-indigo-600 hover:underline px-1">Edit</Link>
                             )}
@@ -489,13 +486,14 @@ export default function AdminPage() {
                             {canManage && !task.locked && task.status !== "LOCKED" && task.status !== "COMPLETED" && (
                               <button onClick={() => { setReassigningId(task.id); setReassignUserId(""); setReassignReason(""); }} className="text-xs text-orange-600 hover:underline px-1">Reassign</button>
                             )}
-                            {canManage && isOverdue(task) && (
+                            {isOverdue(task) && (
                               <button onClick={() => { setRemarksTaskId(task.id); setRemarksText(task.adminRemarks || ""); }} className="text-xs text-blue-600 hover:underline px-1">Remarks</button>
                             )}
+                            <button onClick={() => { setExpandedTaskId(expandedTaskId === task.id ? null : task.id); }} className="text-xs text-purple-600 hover:underline px-1">Voice Note</button>
                             {canManage && (
                               <button onClick={() => handleDeleteTask(task.id)} className="text-xs text-red-600 hover:underline px-1">Delete</button>
                             )}
-                            {(task.extendReason || task.lastExtReason || task.completedRemarks || task.reassignReason || task.extRejectReason || task.pendingReason || task.rejectReason || task.adminRemarks || (task.history && task.history.length > 0)) && (
+                            {(task.extendReason || task.lastExtReason || task.completedRemarks || task.reassignReason || task.extRejectReason || task.pendingReason || task.rejectReason || task.adminRemarks || task.voiceNoteUrl || (task.history && task.history.length > 0)) && (
                               <button onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)} className="text-xs text-blue-600 hover:underline px-1">
                                 {expandedTaskId === task.id ? "Hide" : "Details"}
                               </button>

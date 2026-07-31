@@ -43,7 +43,7 @@ export async function POST(
     });
 
     if (task.assignedToId) {
-      await createNotification(task.assignedToId, `Admin has sent you a voice note for "${task.name}"`, "VOICE_NOTE", id);
+      await createNotification(task.assignedToId, `${user.username} has sent you a voice note for "${task.name}"`, "VOICE_NOTE", id);
     }
 
     const updated = (await get(taskRef)).val();

@@ -582,8 +582,9 @@ export default function SuperAdminPage() {
                             {isOverdue(task) && (
                               <button onClick={() => { setRemarksTaskId(task.id); setRemarksText(task.adminRemarks || ""); }} className="text-xs text-blue-600 hover:underline px-1">Remarks</button>
                             )}
+                            <button onClick={() => { setExpandedTaskId(expandedTaskId === task.id ? null : task.id); }} className="text-xs text-purple-600 hover:underline px-1">Voice Note</button>
                             <button onClick={() => handleDeleteTask(task.id)} className="text-xs text-red-600 hover:underline px-1">Delete</button>
-                            {(task.extendReason || task.lastExtReason || task.completedRemarks || task.reassignReason || task.extRejectReason || task.pendingReason || task.rejectReason || task.adminRemarks || (task.history && task.history.length > 0)) && (
+                            {(task.extendReason || task.lastExtReason || task.completedRemarks || task.reassignReason || task.extRejectReason || task.pendingReason || task.rejectReason || task.adminRemarks || task.voiceNoteUrl || (task.history && task.history.length > 0)) && (
                               <button onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)} className="text-xs text-blue-600 hover:underline px-1">
                                 {expandedTaskId === task.id ? "Hide" : "Details"}
                               </button>
