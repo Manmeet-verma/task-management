@@ -29,6 +29,9 @@ export default function NewTaskPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
+  const isAdmin = user?.role === "ADMIN";
+  const isUser = user?.role === "USER";
+
   useEffect(() => {
     if (!loading && (!user || (user.role !== "ADMIN" && user.role !== "USER"))) {
       router.replace("/login");
@@ -88,15 +91,23 @@ export default function NewTaskPage() {
 
   const redirectBack = () => router.push(user.role === "ADMIN" ? "/admin" : "/user");
 
+  const availableUsers = isUser
+    ? users.filter(u => u.role === "ADMIN")
+    : users.filter(u => u.role === "USER");
+
   return (
     <div className="min-h-screen dark:bg-gray-900">
       <Navbar />
       <div className="max-w-2xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-6 dark:text-white">Create New Request</h1>
+        <h1 className="text-2xl font-bold mb-6 dark:text-white">
+          {isUser ? "Create New Request" : "Create Task / Request"}
+        </h1>
         {error && <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-3 rounded-md mb-4 text-sm">{error}</div>}
         <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Task Name *</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {isUser ? "Request Name *" : "Task / Request Name *"}
+            </label>
             <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
           <div>
@@ -157,13 +168,15 @@ export default function NewTaskPage() {
             <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={4} className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Assign To (single user) *</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {isUser ? "Send Request To (Admin) *" : "Assign To (User) *"}
+            </label>
             <select value={assignedToId} onChange={(e) => setAssignedToId(e.target.value)} required className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
-              <option value="">Select user</option>
-              {users.map((u) => (
+              <option value="">{isUser ? "Select admin" : "Select user"}</option>
+              {availableUsers.map((u) => (
                 <option key={u.id} value={u.id}>{u.username} ({u.role}{u.isMaster ? " / Master" : ""})</option>
               ))}
-              {users.length === 0 && <option value="" disabled>No users available</option>}
+              {availableUsers.length === 0 && <option value="" disabled>No {isUser ? "admins" : "users"} available</option>}
             </select>
           </div>
           <div>
@@ -190,7 +203,7 @@ export default function NewTaskPage() {
           </div>
           <div className="flex gap-3">
             <button type="submit" disabled={saving} className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 disabled:opacity-50">
-              {saving ? "Creating..." : "Create Request"}
+              {saving ? "Creating..." : isUser ? "Create Request" : "Create Task"}
             </button>
             <button type="button" onClick={redirectBack} className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600">
               Cancel

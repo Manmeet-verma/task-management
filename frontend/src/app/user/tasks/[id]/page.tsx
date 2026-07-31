@@ -27,10 +27,17 @@ export default function TaskDetailPage() {
   const completeFileInputRef = useRef<HTMLInputElement>(null);
   const completeCameraInputRef = useRef<HTMLInputElement>(null);
 
+  const [extendFiles, setExtendFiles] = useState<File[]>([]);
+  const [extendFilePreviews, setExtendFilePreviews] = useState<string[]>([]);
+  const extendFileInputRef = useRef<HTMLInputElement>(null);
+  const extendCameraInputRef = useRef<HTMLInputElement>(null);
+
   const [reassigning, setReassigning] = useState(false);
   const [reassignUserId, setReassignUserId] = useState("");
   const [reassignReason, setReassignReason] = useState("");
   const [allUsers, setAllUsers] = useState<any[]>([]);
+
+  const [now, setNow] = useState(new Date());
 
   useEffect(() => {
     if (!loading && (!user || user.role !== "USER")) router.replace("/login");
@@ -40,6 +47,11 @@ export default function TaskDetailPage() {
     if (taskId && user) loadTask();
     if (user) api.users.getAll().then(setAllUsers).catch(() => {});
   }, [taskId, user]);
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const loadTask = async () => {
     try {
@@ -57,6 +69,23 @@ export default function TaskDetailPage() {
       reader.onload = (ev) => setCompleteFilePreview(ev.target?.result as string);
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleExtendFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    const newFiles = Array.from(files);
+    setExtendFiles(prev => [...prev, ...newFiles]);
+    newFiles.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => setExtendFilePreviews(prev => [...prev, ev.target?.result as string]);
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeExtendFile = (index: number) => {
+    setExtendFiles(prev => prev.filter((_, i) => i !== index));
+    setExtendFilePreviews(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleComplete = async (e: React.FormEvent) => {
@@ -86,7 +115,26 @@ export default function TaskDetailPage() {
     e.preventDefault();
     if (!extendDeadline) { alert("Please select a new deadline"); return; }
     setExtendSubmitting(true);
-    try { await api.tasks.extendDate(taskId, extendDeadline, extendReason); setExtendDeadline(""); setExtendReason(""); setShowExtendForm(false); loadTask(); } catch (err) { console.error(err); }
+    try {
+      const formData = new FormData();
+      formData.append("newDeadline", extendDeadline);
+      formData.append("reason", extendReason);
+      for (const file of extendFiles) {
+        formData.append("files", file);
+      }
+      const token = localStorage.getItem("token");
+      await fetch(`/api/tasks/${taskId}/extend-date`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      setExtendDeadline("");
+      setExtendReason("");
+      setExtendFiles([]);
+      setExtendFilePreviews([]);
+      setShowExtendForm(false);
+      loadTask();
+    } catch (err) { console.error(err); }
     finally { setExtendSubmitting(false); }
   };
 
@@ -105,11 +153,6 @@ export default function TaskDetailPage() {
     try { await api.tasks.rejectExtend(taskId, rejectExtendReason); setRejectExtendReason(""); loadTask(); } catch (err) { console.error(err); }
   };
 
-  const handleLock = async () => {
-    if (!confirm("Lock this task?")) return;
-    try { await api.tasks.lock(taskId); loadTask(); } catch (err) { console.error(err); }
-  };
-
   const handleReassign = async () => {
     if (!reassignUserId || !reassignReason.trim()) return;
     try { await api.tasks.reassign(taskId, reassignUserId, reassignReason.trim()); setReassigning(false); setReassignUserId(""); setReassignReason(""); loadTask(); } catch (err) { console.error(err); }
@@ -126,7 +169,8 @@ export default function TaskDetailPage() {
 
   const isOverdue = (() => {
     const deadline = new Date(task.deadline);
-    return deadline < new Date() && task.status !== "COMPLETED" && task.status !== "LOCKED" && task.status !== "VERIFIED";
+    const overdueThreshold = new Date(deadline.getTime() + 24 * 60 * 60 * 1000);
+    return overdueThreshold < now && task.status !== "COMPLETED" && task.status !== "LOCKED" && task.status !== "VERIFIED";
   })();
 
   return (
@@ -163,7 +207,7 @@ export default function TaskDetailPage() {
         {task.locked && (
           <div className="bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 p-6 mb-6">
             <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300">Task Completed(locked)</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">This task has been approved and locked by admin. No further actions allowed.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">This task has been approved by admin. No further actions allowed.</p>
           </div>
         )}
 
@@ -188,7 +232,7 @@ export default function TaskDetailPage() {
         {task.status === "COMPLETED" && !task.locked && (
           <div className="bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800 p-6 mb-6">
             <h2 className="text-lg font-semibold text-green-800 dark:text-green-300">Completed</h2>
-            <p className="text-sm text-green-700 dark:text-green-400">Waiting for admin to verify and lock this task.</p>
+            <p className="text-sm text-green-700 dark:text-green-400">Waiting for admin to verify this task.</p>
             {task.completedRemarks && (
               <div className="mt-3 bg-white dark:bg-gray-800 border border-green-200 dark:border-green-800 rounded-md p-3">
                 <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Your Remarks:</p>
@@ -219,6 +263,20 @@ export default function TaskDetailPage() {
           </div>
         )}
 
+        {task.adminRemarks && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 p-6 mb-6">
+            <h2 className="text-lg font-semibold text-blue-800 dark:text-blue-300">Message from Admin</h2>
+            <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">{task.adminRemarks}</p>
+          </div>
+        )}
+
+        {task.reassignReason && (
+          <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800 p-6 mb-6">
+            <h2 className="text-lg font-semibold text-orange-800 dark:text-orange-300">Reassigned by {task.reassignedBy || "Admin"}</h2>
+            <p className="text-sm text-orange-700 dark:text-orange-400 mt-1 italic">Reason: {task.reassignReason}</p>
+          </div>
+        )}
+
         {canAct && task.assignedToId === user?.id && (
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
             <h2 className="text-lg font-semibold mb-4 dark:text-white">Take Action</h2>
@@ -239,16 +297,13 @@ export default function TaskDetailPage() {
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">You created this task. Manage it below.</p>
             <div className="flex flex-wrap gap-2">
               {task.status === "COMPLETED" && !task.locked && (
-                <button onClick={handleApproveComplete} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm font-medium">Accept & Lock</button>
+                <button onClick={handleApproveComplete} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm font-medium">Accept Complete</button>
               )}
               {task.extendStatus === "PENDING" && (
                 <>
                   <button onClick={handleApproveExtend} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm font-medium">Accept Extension</button>
                   <button onClick={() => setRejectExtendReason("-")} className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 text-sm font-medium">Reject Extension</button>
                 </>
-              )}
-              {!task.locked && task.status !== "LOCKED" && task.status !== "COMPLETED" && (
-                <button onClick={handleLock} className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 text-sm font-medium">Lock</button>
               )}
               {!task.locked && task.status !== "LOCKED" && task.status !== "COMPLETED" && (
                 <button onClick={() => setReassigning(!reassigning)} className="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600 text-sm font-medium">Reassign</button>
@@ -330,11 +385,48 @@ export default function TaskDetailPage() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reason (Optional)</label>
                 <textarea value={extendReason} onChange={(e) => setExtendReason(e.target.value)} rows={2} className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500" placeholder="Why do you need more time?" />
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Upload Photos (optional)</label>
+                <div className="flex gap-2">
+                  <input ref={extendFileInputRef} type="file" accept=".jpg,.jpeg,.png" multiple onChange={handleExtendFileSelect} className="hidden" />
+                  <button type="button" onClick={() => extendFileInputRef.current?.click()} className="bg-blue-500 text-white px-3 py-2 rounded-md hover:bg-blue-600 text-sm">
+                    + Add Photo
+                  </button>
+                  <input ref={extendCameraInputRef} type="file" accept="image/*" capture="environment" multiple onChange={handleExtendFileSelect} className="hidden" />
+                  <button type="button" onClick={() => extendCameraInputRef.current?.click()} className="bg-purple-500 text-white px-3 py-2 rounded-md hover:bg-purple-600 text-sm">
+                    Camera
+                  </button>
+                </div>
+                {extendFiles.length > 0 && (
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {extendFilePreviews.map((preview, i) => (
+                      <div key={i} className="relative">
+                        <img src={preview} alt={`Preview ${i + 1}`} className="w-full h-24 object-cover rounded border border-gray-200 dark:border-gray-700" />
+                        <button type="button" onClick={() => removeExtendFile(i)} className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600">
+                          x
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {extendFiles.length > 0 && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{extendFiles.length} photo(s) selected</p>
+                )}
+              </div>
+
               <div className="flex gap-2">
                 <button type="submit" disabled={extendSubmitting} className="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600 disabled:opacity-50">{extendSubmitting ? "Submitting..." : "Submit Request"}</button>
-                <button type="button" onClick={() => { setShowExtendForm(false); setExtendDeadline(""); setExtendReason(""); }} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">Cancel</button>
+                <button type="button" onClick={() => { setShowExtendForm(false); setExtendDeadline(""); setExtendReason(""); setExtendFiles([]); setExtendFilePreviews([]); }} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">Cancel</button>
               </div>
             </form>
+          </div>
+        )}
+
+        {task.voiceNoteUrl && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-purple-200 dark:border-purple-800 p-6 mb-6">
+            <h2 className="text-lg font-semibold mb-3 dark:text-white">Voice Note from Admin</h2>
+            <audio controls src={task.voiceNoteUrl} className="w-full" />
           </div>
         )}
 

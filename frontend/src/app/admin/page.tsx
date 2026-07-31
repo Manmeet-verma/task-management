@@ -9,6 +9,7 @@ import StatusBadge from "@/components/StatusBadge";
 import Pagination from "@/components/Pagination";
 import Link from "next/link";
 import { openAttachment } from "@/lib/attachment";
+import VoiceRecorder from "@/components/VoiceRecorder";
 
 export default function AdminPage() {
   const { user, loading } = useAuth();
@@ -20,15 +21,23 @@ export default function AdminPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loadingData, setLoadingData] = useState(true);
   const [filterStatus, setFilterStatus] = useState("");
+  const [filterCategory, setFilterCategory] = useState("");
+  const [filterSite, setFilterSite] = useState("");
+  const [filterAssignedTo, setFilterAssignedTo] = useState("");
+  const [filterAssignedBy, setFilterAssignedBy] = useState("");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [tab, setTab] = useState<"all" | "created" | "assigned" | "completed" | "pending" | "reassigned" | "extension" | "users" | "categories" | "sites">("all");
+  const [tab, setTab] = useState<"all" | "created" | "assigned" | "completed" | "pending" | "reassigned" | "users" | "categories" | "sites">("all");
+  const [pendingFilter, setPendingFilter] = useState<"all" | "general" | "overdue" | "extension" | "reassign">("all");
   const [reassigningId, setReassigningId] = useState<string | null>(null);
   const [reassignUserId, setReassignUserId] = useState("");
   const [reassignReason, setReassignReason] = useState("");
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [rejectExtendId, setRejectExtendId] = useState<string | null>(null);
   const [rejectExtendReason, setRejectExtendReason] = useState("");
+  const [remarksTaskId, setRemarksTaskId] = useState<string | null>(null);
+  const [remarksText, setRemarksText] = useState("");
+  const [now, setNow] = useState(new Date());
 
   const [showUserForm, setShowUserForm] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -46,6 +55,11 @@ export default function AdminPage() {
     if (user?.role === "ADMIN") loadData();
   }, [user]);
 
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   const loadData = async () => {
     setLoadingData(true);
     try {
@@ -61,10 +75,10 @@ export default function AdminPage() {
     finally { setLoadingData(false); }
   };
 
-  const now = new Date();
   const isOverdue = (task: Task) => {
     const deadline = new Date(task.deadline);
-    return deadline < now && task.status !== "COMPLETED" && task.status !== "LOCKED" && task.status !== "VERIFIED";
+    const overdueThreshold = new Date(deadline.getTime() + 24 * 60 * 60 * 1000);
+    return overdueThreshold < now && task.status !== "COMPLETED" && task.status !== "LOCKED" && task.status !== "VERIFIED";
   };
 
   const canLockReassignDelete = (task: Task) => {
@@ -95,11 +109,6 @@ export default function AdminPage() {
     } catch (err) { console.error(err); }
   };
 
-  const handleLock = async (id: string) => {
-    if (!confirm("Lock this task?")) return;
-    try { await api.tasks.lock(id); loadData(); } catch (err: any) { alert(err.message || "Failed"); }
-  };
-
   const handleReassign = async (id: string) => {
     if (!reassignUserId || !reassignReason.trim()) return;
     try {
@@ -109,6 +118,20 @@ export default function AdminPage() {
       setReassignReason("");
       loadData();
     } catch (err: any) { alert(err.message || "Failed"); }
+  };
+
+  const handleAdminRemarks = async (id: string) => {
+    if (!remarksText.trim()) return;
+    try {
+      await fetch(`/api/tasks/${id}/admin-remarks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token")}` },
+        body: JSON.stringify({ remarks: remarksText.trim() }),
+      });
+      setRemarksTaskId(null);
+      setRemarksText("");
+      loadData();
+    } catch (err) { console.error(err); }
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -163,7 +186,6 @@ export default function AdminPage() {
   const completedTasks = tasks.filter((t) => t.status === "COMPLETED" && !t.locked);
   const lockedTasks = tasks.filter((t) => t.status === "LOCKED" || t.locked);
   const reassignedTasks = tasks.filter((t) => t.reassignReason);
-  const extensionTasks = tasks.filter((t) => t.extendStatus === "PENDING" || t.extendStatus === "APPROVED");
   const pendingTasks = tasks.filter((t) => t.status === "PENDING" || t.extendStatus === "PENDING" || (t.reassignReason && t.status !== "LOCKED"));
 
   const filteredTasks = tasks.filter((t) => {
@@ -174,12 +196,21 @@ export default function AdminPage() {
     if (tab === "created") matchTab = t.createdById === user?.id;
     else if (tab === "assigned") matchTab = t.assignedToId === user?.id;
     else if (tab === "completed") matchTab = t.status === "COMPLETED" || t.status === "LOCKED";
-    else if (tab === "pending") matchTab = t.status === "PENDING" || t.extendStatus === "PENDING";
+    else if (tab === "pending") {
+      matchTab = t.status === "PENDING" || t.extendStatus === "PENDING" || (t.reassignReason && t.status !== "LOCKED");
+      if (pendingFilter === "general") matchTab = t.status === "PENDING" && !isOverdue(t) && !t.reassignReason;
+      else if (pendingFilter === "overdue") matchTab = isOverdue(t) && t.status !== "COMPLETED" && t.status !== "LOCKED";
+      else if (pendingFilter === "extension") matchTab = t.extendStatus === "PENDING";
+      else if (pendingFilter === "reassign") matchTab = !!t.reassignReason && t.status !== "LOCKED";
+    }
     else if (tab === "reassigned") matchTab = !!t.reassignReason;
-    else if (tab === "extension") matchTab = t.extendStatus === "PENDING" || t.extendStatus === "APPROVED" || t.extendStatus === "REJECTED";
     else if (tab === "all") matchTab = true;
     const matchStatus = !filterStatus || t.status === filterStatus;
-    return matchTab && matchStatus;
+    const matchCategory = !filterCategory || t.category === filterCategory;
+    const matchSite = !filterSite || t.siteProject === filterSite;
+    const matchAssignedTo = !filterAssignedTo || t.assignedToId === filterAssignedTo;
+    const matchAssignedBy = !filterAssignedBy || t.createdById === filterAssignedBy;
+    return matchTab && matchStatus && matchCategory && matchSite && matchAssignedTo && matchAssignedBy;
   });
 
   const totalPages = Math.ceil(filteredTasks.length / perPage);
@@ -241,16 +272,15 @@ export default function AdminPage() {
           {[
             { key: "all" as const, label: "All", count: tasks.length },
             { key: "created" as const, label: "My Tasks", count: tasks.filter((t) => t.createdById === user?.id).length },
-            { key: "assigned" as const, label: "Requested to Me", count: tasks.filter((t) => t.assignedToId === user?.id).length },
+            { key: "assigned" as const, label: "Request by User", count: tasks.filter((t) => t.assignedToId === user?.id).length },
             { key: "completed" as const, label: "Completed", count: completedTasks.length + lockedTasks.length },
             { key: "pending" as const, label: "Pending", count: pendingTasks.length },
             { key: "reassigned" as const, label: "Reassigned", count: reassignedTasks.length },
-            { key: "extension" as const, label: "Extension", count: extensionTasks.length },
             { key: "users" as const, label: "Users", count: users.length },
             { key: "categories" as const, label: "Categories", count: categories.length },
             { key: "sites" as const, label: "Sites", count: sites.length },
           ].map((t) => (
-            <button key={t.key} onClick={() => { setTab(t.key); setPage(1); setFilterStatus(""); }} className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${tab === t.key ? "border-indigo-600 text-indigo-600 dark:text-indigo-400" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"}`}>
+            <button key={t.key} onClick={() => { setTab(t.key); setPage(1); setFilterStatus(""); setPendingFilter("all"); }} className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${tab === t.key ? "border-indigo-600 text-indigo-600 dark:text-indigo-400" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"}`}>
               {t.label} ({t.count})
             </button>
           ))}
@@ -367,8 +397,24 @@ export default function AdminPage() {
           )
         ) : (
           <>
-            <div className="flex gap-4 mb-4">
-              <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }} className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 dark:text-white">
+            {tab === "pending" && (
+              <div className="flex gap-2 mb-4 flex-wrap">
+                {[
+                  { key: "all" as const, label: "All Pending" },
+                  { key: "general" as const, label: "General Pending" },
+                  { key: "overdue" as const, label: "Overdue" },
+                  { key: "extension" as const, label: "Extension Requests" },
+                  { key: "reassign" as const, label: "Reassign" },
+                ].map((f) => (
+                  <button key={f.key} onClick={() => { setPendingFilter(f.key); setPage(1); }} className={`px-3 py-1.5 rounded-full text-xs font-medium ${pendingFilter === f.key ? "bg-indigo-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}>
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-4 mb-4 flex-wrap">
+              <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }} className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 dark:text-white text-sm">
                 <option value="">All Status</option>
                 <option value="ASSIGNED">Assigned</option>
                 <option value="IN_PROGRESS">Pending</option>
@@ -376,7 +422,24 @@ export default function AdminPage() {
                 <option value="COMPLETED">Completed</option>
                 <option value="LOCKED">Completed(locked)</option>
               </select>
+              <select value={filterCategory} onChange={(e) => { setFilterCategory(e.target.value); setPage(1); }} className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 dark:text-white text-sm">
+                <option value="">All Categories</option>
+                {categories.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+              </select>
+              <select value={filterSite} onChange={(e) => { setFilterSite(e.target.value); setPage(1); }} className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 dark:text-white text-sm">
+                <option value="">All Sites</option>
+                {sites.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
+              </select>
+              <select value={filterAssignedTo} onChange={(e) => { setFilterAssignedTo(e.target.value); setPage(1); }} className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 dark:text-white text-sm">
+                <option value="">All Assigned To</option>
+                {users.map((u) => <option key={u.id} value={u.id}>{u.username}</option>)}
+              </select>
+              <select value={filterAssignedBy} onChange={(e) => { setFilterAssignedBy(e.target.value); setPage(1); }} className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 dark:text-white text-sm">
+                <option value="">All Assigned By</option>
+                {users.map((u) => <option key={u.id} value={u.id}>{u.username}</option>)}
+              </select>
             </div>
+
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -415,7 +478,7 @@ export default function AdminPage() {
                               <Link href={`/admin/tasks/${task.id}/edit`} className="text-xs text-indigo-600 hover:underline px-1">Edit</Link>
                             )}
                             {task.status === "COMPLETED" && !task.locked && canManage && (
-                              <button onClick={() => handleApproveComplete(task.id)} className="text-xs text-green-600 hover:underline px-1">Accept & Lock</button>
+                              <button onClick={() => handleApproveComplete(task.id)} className="text-xs text-green-600 hover:underline px-1">Accept Complete</button>
                             )}
                             {task.extendStatus === "PENDING" && canManage && (
                               <>
@@ -426,13 +489,13 @@ export default function AdminPage() {
                             {canManage && !task.locked && task.status !== "LOCKED" && task.status !== "COMPLETED" && (
                               <button onClick={() => { setReassigningId(task.id); setReassignUserId(""); setReassignReason(""); }} className="text-xs text-orange-600 hover:underline px-1">Reassign</button>
                             )}
-                            {canManage && !task.locked && task.status !== "LOCKED" && task.status !== "COMPLETED" && (
-                              <button onClick={() => handleLock(task.id)} className="text-xs text-gray-600 hover:underline px-1">Lock</button>
+                            {canManage && isOverdue(task) && (
+                              <button onClick={() => { setRemarksTaskId(task.id); setRemarksText(task.adminRemarks || ""); }} className="text-xs text-blue-600 hover:underline px-1">Remarks</button>
                             )}
                             {canManage && (
                               <button onClick={() => handleDeleteTask(task.id)} className="text-xs text-red-600 hover:underline px-1">Delete</button>
                             )}
-                            {(task.extendReason || task.lastExtReason || task.completedRemarks || task.reassignReason || task.extRejectReason || task.pendingReason || task.rejectReason) && (
+                            {(task.extendReason || task.lastExtReason || task.completedRemarks || task.reassignReason || task.extRejectReason || task.pendingReason || task.rejectReason || task.adminRemarks || (task.history && task.history.length > 0)) && (
                               <button onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)} className="text-xs text-blue-600 hover:underline px-1">
                                 {expandedTaskId === task.id ? "Hide" : "Details"}
                               </button>
@@ -462,8 +525,18 @@ export default function AdminPage() {
                               </div>
                             </div>
                           )}
+                          {remarksTaskId === task.id && (
+                            <div className="mt-2 space-y-2">
+                              <textarea value={remarksText} onChange={(e) => setRemarksText(e.target.value)} rows={2} placeholder="Write admin remarks for this overdue task..." className="text-xs border rounded px-2 py-1 dark:bg-gray-700 dark:text-white dark:border-gray-600 w-full" />
+                              <div className="flex gap-2">
+                                <button onClick={() => handleAdminRemarks(task.id)} disabled={!remarksText.trim()} className="text-xs bg-blue-600 text-white px-2 py-1 rounded disabled:opacity-50">Send Remarks</button>
+                                <button onClick={() => { setRemarksTaskId(null); setRemarksText(""); }} className="text-xs text-gray-500">Cancel</button>
+                              </div>
+                            </div>
+                          )}
                           {expandedTaskId === task.id && (
                             <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-900 rounded text-xs space-y-1">
+                              {task.adminRemarks && <p className="text-blue-600 dark:text-blue-400"><span className="font-medium">Admin Remarks:</span> {task.adminRemarks}</p>}
                               {task.reassignReason && <p className="text-orange-600 dark:text-orange-400"><span className="font-medium">Reassign Reason:</span> {task.reassignReason}</p>}
                               {task.reassignedBy && <p className="text-orange-600 dark:text-orange-400"><span className="font-medium">Reassigned By:</span> {task.reassignedBy}</p>}
                               {task.extendReason && <p className="text-orange-600 dark:text-orange-400"><span className="font-medium">Extension Reason:</span> {task.extendReason}</p>}
@@ -475,6 +548,12 @@ export default function AdminPage() {
                               {task.rejectReason && <p className="text-red-600 dark:text-red-400"><span className="font-medium">Reject Reason:</span> {task.rejectReason}</p>}
                               {task.attachmentUrl && <p className="text-blue-600 dark:text-blue-400"><span className="font-medium">Attachment:</span> <button onClick={() => openAttachment(task.attachmentUrl!, `${task.name}_attachment`)} className="underline">View</button></p>}
                               {task.completedAttachmentUrl && <p className="text-green-600 dark:text-green-400"><span className="font-medium">Completion Attachment:</span> <button onClick={() => openAttachment(task.completedAttachmentUrl!, `${task.name}_completed`)} className="underline">View</button></p>}
+                              {task.voiceNoteUrl && <p className="text-purple-600 dark:text-purple-400"><span className="font-medium">Voice Note:</span> <audio controls src={task.voiceNoteUrl} className="inline-block ml-2 max-w-xs" /></p>}
+                              {canManage && (
+                                <div className="mt-2">
+                                  <VoiceRecorder taskId={task.id} onSent={loadData} />
+                                </div>
+                              )}
                               {task.history && Array.isArray(task.history) && task.history.length > 0 && (
                                 <div className="mt-2 border-t border-gray-200 dark:border-gray-700 pt-2">
                                   <p className="font-medium text-blue-600 dark:text-blue-400 mb-1">Change History:</p>

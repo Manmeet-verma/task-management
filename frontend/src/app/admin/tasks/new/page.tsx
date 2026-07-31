@@ -84,7 +84,7 @@ export default function NewTaskPage() {
     <div className="min-h-screen dark:bg-gray-900">
       <Navbar />
       <div className="max-w-2xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-6 dark:text-white">Create New Request</h1>
+        <h1 className="text-2xl font-bold mb-6 dark:text-white">Create New Task</h1>
         {error && <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-3 rounded-md mb-4 text-sm">{error}</div>}
         <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 space-y-4">
           <div>
@@ -149,13 +149,13 @@ export default function NewTaskPage() {
             <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={4} className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Assign To (single user) *</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Assign To (User only) *</label>
             <select value={assignedToId} onChange={(e) => setAssignedToId(e.target.value)} required className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
               <option value="">Select user</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>{u.username} ({u.role})</option>
+              {users.filter(u => u.role === "USER").map((u) => (
+                <option key={u.id} value={u.id}>{u.username}</option>
               ))}
-              {users.length === 0 && <option value="" disabled>No users available</option>}
+              {users.filter(u => u.role === "USER").length === 0 && <option value="" disabled>No users available</option>}
             </select>
           </div>
           <div>

@@ -24,8 +24,30 @@ export async function POST(
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { id } = await params;
-    const body = await request.json();
-    const { newDeadline, reason } = body;
+    const contentType = request.headers.get("content-type") || "";
+
+    let newDeadline = "";
+    let reason = "";
+    const extendAttachments: string[] = [];
+
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await request.formData();
+      newDeadline = (formData.get("newDeadline") as string) || "";
+      reason = (formData.get("reason") as string) || "";
+
+      const files = formData.getAll("files") as File[];
+      for (const file of files) {
+        if (file && file.size > 0) {
+          const bytes = await file.arrayBuffer();
+          const base64 = Buffer.from(bytes).toString("base64");
+          extendAttachments.push(`data:${file.type};base64,${base64}`);
+        }
+      }
+    } else {
+      const body = await request.json();
+      newDeadline = body.newDeadline || "";
+      reason = body.reason || "";
+    }
 
     const taskRef = ref(db, `tasks/${id}`);
     const snapshot = await get(taskRef);
@@ -36,12 +58,18 @@ export async function POST(
     if (task.status === "COMPLETED") return NextResponse.json({ error: "Cannot request extension on completed task" }, { status: 400 });
     if (!newDeadline) return NextResponse.json({ error: "New deadline is required" }, { status: 400 });
 
-    await update(taskRef, {
+    const updateData: Record<string, any> = {
       extendDeadline: newDeadline,
       extendReason: reason || "",
       extendStatus: "PENDING",
       updatedAt: new Date().toISOString(),
-    });
+    };
+
+    if (extendAttachments.length > 0) {
+      updateData.extendAttachments = extendAttachments;
+    }
+
+    await update(taskRef, updateData);
     await createNotification(task.createdById, `${user.username} requested deadline extension for "${task.name}" to ${newDeadline}${reason ? `: ${reason}` : ""}`, "EXTEND_REQUEST", id);
 
     const updated = (await get(taskRef)).val();

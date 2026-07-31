@@ -80,6 +80,10 @@ export const api = {
       request<Task>(`/tasks/${id}/lock`, { method: "POST" }),
     reassign: (id: string, assignedToId: string, reason?: string) =>
       request<Task>(`/tasks/${id}/reassign`, { method: "POST", body: { assignedToId, reason } }),
+    adminRemarks: (id: string, remarks: string) =>
+      request<Task>(`/tasks/${id}/admin-remarks`, { method: "POST", body: { remarks } }),
+    voiceNote: (id: string, voiceNoteUrl: string) =>
+      request<Task>(`/tasks/${id}/voice-note`, { method: "POST", body: { voiceNoteUrl } }),
     getStats: () => request<DashboardStats>("/tasks/stats"),
   },
   submissions: {
@@ -178,6 +182,9 @@ export interface Task {
   hasCompletedAttachment?: boolean;
   extRejectReason?: string;
   extRejectedBy?: string;
+  adminRemarks?: string;
+  voiceNoteUrl?: string;
+  extendAttachments?: string[];
   history?: { date: string; action: string; details: string; performedBy?: string }[];
 }
 
