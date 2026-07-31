@@ -7,6 +7,7 @@ import { api, type Task, type Submission } from "@/lib/api";
 import Navbar from "@/components/Navbar";
 import StatusBadge from "@/components/StatusBadge";
 import { openAttachment } from "@/lib/attachment";
+import VoiceRecorder from "@/components/VoiceRecorder";
 
 export default function TaskDetailPage() {
   const { user, loading } = useAuth();
@@ -31,6 +32,9 @@ export default function TaskDetailPage() {
   const [extendFilePreviews, setExtendFilePreviews] = useState<string[]>([]);
   const extendFileInputRef = useRef<HTMLInputElement>(null);
   const extendCameraInputRef = useRef<HTMLInputElement>(null);
+
+  const [showVoiceAfterComplete, setShowVoiceAfterComplete] = useState(false);
+  const [showVoiceAfterExtend, setShowVoiceAfterExtend] = useState(false);
 
   const [reassigning, setReassigning] = useState(false);
   const [reassignUserId, setReassignUserId] = useState("");
@@ -116,6 +120,7 @@ export default function TaskDetailPage() {
       setCompleteFiles([]);
       setCompleteFilePreviews([]);
       setShowCompleteForm(false);
+      setShowVoiceAfterComplete(true);
       loadTask();
     } catch (err) { console.error(err); }
     finally { setCompleting(false); }
@@ -143,6 +148,7 @@ export default function TaskDetailPage() {
       setExtendFiles([]);
       setExtendFilePreviews([]);
       setShowExtendForm(false);
+      setShowVoiceAfterExtend(true);
       loadTask();
     } catch (err) { console.error(err); }
     finally { setExtendSubmitting(false); }
@@ -410,6 +416,15 @@ export default function TaskDetailPage() {
           </div>
         )}
 
+        {showVoiceAfterComplete && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-purple-200 dark:border-purple-800 p-6 mb-6">
+            <h2 className="text-lg font-semibold mb-3 dark:text-white">Send Voice Note with Completion</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Optionally record a voice note to send along with your task completion.</p>
+            <VoiceRecorder taskId={taskId} onSent={() => { setShowVoiceAfterComplete(false); loadTask(); }} />
+            <button onClick={() => setShowVoiceAfterComplete(false)} className="mt-3 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">Skip - No Voice Note</button>
+          </div>
+        )}
+
         {showExtendForm && (
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-orange-200 dark:border-orange-800 p-6 mb-6">
             <form onSubmit={handleExtend} className="space-y-4">
@@ -463,6 +478,15 @@ export default function TaskDetailPage() {
                 <button type="button" onClick={() => { setShowExtendForm(false); setExtendDeadline(""); setExtendReason(""); setExtendFiles([]); setExtendFilePreviews([]); }} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">Cancel</button>
               </div>
             </form>
+          </div>
+        )}
+
+        {showVoiceAfterExtend && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-purple-200 dark:border-purple-800 p-6 mb-6">
+            <h2 className="text-lg font-semibold mb-3 dark:text-white">Send Voice Note with Extension Request</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Optionally record a voice note to send along with your extension request.</p>
+            <VoiceRecorder taskId={taskId} onSent={() => { setShowVoiceAfterExtend(false); loadTask(); }} />
+            <button onClick={() => setShowVoiceAfterExtend(false)} className="mt-3 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">Skip - No Voice Note</button>
           </div>
         )}
 

@@ -22,7 +22,6 @@ export async function POST(
   try {
     const user = verifyAuth(request);
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (user.role !== "ADMIN") return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 
     const { id } = await params;
     const body = await request.json();
@@ -37,13 +36,23 @@ export async function POST(
     if (!snapshot.exists()) return NextResponse.json({ error: "Task not found" }, { status: 404 });
     const task = snapshot.val();
 
+    const isAssignee = task.assignedToId === user.id || (task.assignedToIds || []).includes(user.id);
+    const isCreator = task.createdById === user.id;
+    const isAdmin = user.role === "ADMIN";
+
+    if (!isAssignee && !isCreator && !isAdmin) {
+      return NextResponse.json({ error: "Not authorized for this task" }, { status: 403 });
+    }
+
     await update(taskRef, {
       voiceNoteUrl,
       updatedAt: new Date().toISOString(),
     });
 
-    if (task.assignedToId) {
+    if (isAdmin && task.assignedToId) {
       await createNotification(task.assignedToId, `${user.username} has sent you a voice note for "${task.name}"`, "VOICE_NOTE", id);
+    } else if (isAssignee && task.createdById) {
+      await createNotification(task.createdById, `${user.username} has sent a voice note for "${task.name}"`, "VOICE_NOTE", id);
     }
 
     const updated = (await get(taskRef)).val();
