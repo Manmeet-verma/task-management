@@ -225,6 +225,7 @@ export default function AdminPage() {
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">View all tasks. Only the assigning admin can manage each task.</p>
           </div>
           <div className="flex gap-2">
+            <Link href="/tasks/new" className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">+ Create Task</Link>
             {tab === "users" && (
               <button onClick={() => { setEditingUser(null); setUserForm({ username: "", email: "", password: "", role: "USER", isMaster: false, panCard: "", aadharCard: "", gst: "" }); setShowUserForm(true); }} className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">+ New User</button>
             )}
