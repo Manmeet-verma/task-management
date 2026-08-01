@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { api, type Task, type Site } from "@/lib/api";
 import Navbar from "@/components/Navbar";
 import StatusBadge from "@/components/StatusBadge";
+import Pagination from "@/components/Pagination";
 import Link from "next/link";
 import { openAttachment } from "@/lib/attachment";
 
@@ -27,51 +28,8 @@ export default function UserPage() {
   const [now, setNow] = useState(new Date());
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [cardFilter, setCardFilter] = useState<"all" | "pending" | "completed" | "pendingReview" | "overdue" | "reassigned">("all");
-
-  const exportToExcel = () => {
-    const headers = ["#", "Task Name", "Description", "Category", "Site", "Requested By", "Deadline", "Status", "Priority", "Extensions", "Completed Remarks", "Admin Remarks"];
-    const rows = filteredTasks.map((task, idx) => [
-      idx + 1,
-      task.name,
-      task.description || "",
-      task.category,
-      task.siteProject,
-      task.createdById === user?.id ? "You" : (task.assignedByName || task.createdBy?.username || "Unknown"),
-      new Date(task.deadline).toLocaleDateString(),
-      task.status,
-      task.priority,
-      task.extensionCount || 0,
-      task.completedRemarks || "",
-      task.adminRemarks || "",
-    ]);
-
-    const escapeXml = (val: string) => val.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
-    const xmlRows = rows.map((row) =>
-      `<Row>${row.map((cell) => `<Cell><Data ss:Type="String">${escapeXml(String(cell))}</Data></Cell>`).join("")}</Row>`
-    ).join("");
-
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
- <Worksheet ss:Name="My Tasks">
-  <Table>
-   <Row>${headers.map((h) => `<Cell><Data ss:Type="String">${escapeXml(h)}</Data></Cell>`).join("")}</Row>
-   ${xmlRows}
-  </Table>
- </Worksheet>
-</Workbook>`;
-
-    const blob = new Blob([xml], { type: "application/vnd.ms-excel" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `my_tasks_${new Date().toISOString().split("T")[0]}.xls`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
 
   useEffect(() => {
     if (!loading && (!user || user.role !== "USER")) router.replace("/login");
@@ -149,6 +107,9 @@ export default function UserPage() {
     return true;
   });
 
+  const totalPages = Math.ceil(filteredTasks.length / perPage);
+  const paginated = filteredTasks.slice((page - 1) * perPage, page * perPage);
+
   if (loading || !user) return null;
 
   return (
@@ -159,7 +120,6 @@ export default function UserPage() {
           <h1 className="text-2xl font-bold dark:text-white">My Tasks ({myTasks.length})</h1>
           <div className="flex gap-2">
             <Link href="/tasks/new" className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">+ Create Request</Link>
-            <button onClick={exportToExcel} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm">Download Excel</button>
             <button onClick={() => setShowChangePassword(true)} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 text-sm">Change Password</button>
           </div>
         </div>
@@ -225,27 +185,27 @@ export default function UserPage() {
         {topAction !== "create" && myTasks.length > 0 && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-              <button onClick={() => setCardFilter("all")} className={`border rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer ${cardFilter === "all" ? "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-300 dark:border-indigo-700" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"}`}>
+              <button onClick={() => { setCardFilter("all"); setPage(1); }} className={`border rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer ${cardFilter === "all" ? "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-300 dark:border-indigo-700" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"}`}>
                 <p className="text-sm text-gray-500 dark:text-gray-400">All Tasks</p>
                 <p className="text-2xl font-bold dark:text-white">{myTasks.length}</p>
               </button>
-              <button onClick={() => setCardFilter("pending")} className={`border rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer ${cardFilter === "pending" ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"}`}>
+              <button onClick={() => { setCardFilter("pending"); setPage(1); }} className={`border rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer ${cardFilter === "pending" ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"}`}>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Pending</p>
                 <p className="text-2xl font-bold text-blue-600">{pendingTasks.length}</p>
               </button>
-              <button onClick={() => setCardFilter("completed")} className={`border rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer ${cardFilter === "completed" ? "bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"}`}>
+              <button onClick={() => { setCardFilter("completed"); setPage(1); }} className={`border rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer ${cardFilter === "completed" ? "bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"}`}>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Completed</p>
                 <p className="text-2xl font-bold text-green-600">{completedTasks.length}</p>
               </button>
-              <button onClick={() => setCardFilter("pendingReview")} className={`border rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer ${cardFilter === "pendingReview" ? "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"}`}>
+              <button onClick={() => { setCardFilter("pendingReview"); setPage(1); }} className={`border rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer ${cardFilter === "pendingReview" ? "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"}`}>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Pending Review</p>
                 <p className="text-2xl font-bold text-yellow-600">{pendingReviewTasks.length}</p>
               </button>
-              <button onClick={() => setCardFilter("overdue")} className={`border rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer ${cardFilter === "overdue" ? "bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700" : "bg-white dark:bg-gray-800 border-red-200 dark:border-red-700"}`}>
+              <button onClick={() => { setCardFilter("overdue"); setPage(1); }} className={`border rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer ${cardFilter === "overdue" ? "bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700" : "bg-white dark:bg-gray-800 border-red-200 dark:border-red-700"}`}>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Overdue</p>
                 <p className="text-2xl font-bold text-red-600">{overdueTasks.length}</p>
               </button>
-              <button onClick={() => setCardFilter("reassigned")} className={`border rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer ${cardFilter === "reassigned" ? "bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-700" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"}`}>
+              <button onClick={() => { setCardFilter("reassigned"); setPage(1); }} className={`border rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer ${cardFilter === "reassigned" ? "bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-700" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"}`}>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Reassigned</p>
                 <p className="text-2xl font-bold text-orange-600">{reassignedTasks.length}</p>
               </button>
@@ -270,98 +230,108 @@ export default function UserPage() {
         ) : filteredTasks.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center py-8">No tasks found.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="bg-gray-100 dark:bg-gray-800 text-left">
-                  <th className="px-3 py-2 border dark:border-gray-700 font-medium">#</th>
-                  <th className="px-3 py-2 border dark:border-gray-700 font-medium">Task Name</th>
-                  <th className="px-3 py-2 border dark:border-gray-700 font-medium">Category</th>
-                  <th className="px-3 py-2 border dark:border-gray-700 font-medium">Site</th>
-                  <th className="px-3 py-2 border dark:border-gray-700 font-medium">Requested By</th>
-                  <th className="px-3 py-2 border dark:border-gray-700 font-medium">Deadline</th>
-                  <th className="px-3 py-2 border dark:border-gray-700 font-medium">Status</th>
-                  <th className="px-3 py-2 border dark:border-gray-700 font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredTasks.map((task, idx) => {
-                  const canAct = !task.locked && task.status !== "COMPLETED" && task.status !== "LOCKED" && task.status !== "REJECTED";
-                  const overdue = isOverdue(task);
-                  return (
-                    <tr key={task.id} className={`${overdue ? "bg-red-50 dark:bg-red-900/20" : "bg-white dark:bg-gray-900"} hover:bg-gray-50 dark:hover:bg-gray-800`}>
-                      <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-300">{idx + 1}</td>
-                      <td className="px-3 py-2 border dark:border-gray-700">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium dark:text-white">{task.name}</span>
-                          {overdue && <span className="text-[10px] bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-300 px-1.5 py-0.5 rounded-full font-medium">Overdue</span>}
-                        </div>
-                        {task.description && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">{task.description}</p>}
-                      </td>
-                      <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-300">{task.category}</td>
-                      <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-300">{task.siteProject}</td>
-                      <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-300">
-                        {task.createdById === user?.id ? "You" : (task.assignedByName || task.createdBy?.username || "Unknown")}
-                      </td>
-                      <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-300">
-                        <div>{new Date(task.deadline).toLocaleDateString()}</div>
-                        {task.userDeadline && <div className="text-xs text-gray-500 dark:text-gray-400">Your: {new Date(task.userDeadline).toLocaleDateString()}</div>}
-                        {task.extensionCount > 0 && <div className="text-xs text-red-600 dark:text-red-400">Ext: {task.extensionCount}</div>}
-                      </td>
-                      <td className="px-3 py-2 border dark:border-gray-700">
-                        <StatusBadge status={task.status} />
-                        {task.extendStatus === "PENDING" && <span className="block text-[10px] text-orange-600 dark:text-orange-400 mt-0.5">Ext Pending</span>}
-                        {task.reassignReason && <span className="block text-[10px] text-orange-600 dark:text-orange-400 mt-0.5">Reassigned</span>}
-                      </td>
-                      <td className="px-3 py-2 border dark:border-gray-700">
-                        <div className="flex gap-1 flex-wrap">
-                          {task.hasAttachment && (
-                            <button onClick={async () => { if (!task.attachmentUrl) { const full = await api.tasks.getById(task.id); if (full.attachmentUrl) openAttachment(full.attachmentUrl, `${task.name}_attachment`); } else { openAttachment(task.attachmentUrl, `${task.name}_attachment`); } }} className="text-[10px] text-blue-600 dark:text-blue-400 underline">Attachment</button>
-                          )}
-                          {task.hasCompletedAttachment && (
-                            <button onClick={async () => { if (!task.completedAttachmentUrl) { const full = await api.tasks.getById(task.id); if (full.completedAttachmentUrl) openAttachment(full.completedAttachmentUrl, `${task.name}_completed`); } else { openAttachment(task.completedAttachmentUrl, `${task.name}_completed`); } }} className="text-[10px] text-green-600 dark:text-green-400 underline">Complete File</button>
-                          )}
-                          {task.voiceNoteUrl && (
-                            <button onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)} className="text-[10px] text-purple-600 dark:text-purple-400 underline">Voice</button>
-                          )}
-                          {task.adminRemarks && (
-                            <button onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)} className="text-[10px] text-blue-600 dark:text-blue-400 underline">Remarks</button>
-                          )}
-                          {(task.extendReason || task.lastExtReason || task.completedRemarks || task.reassignReason || task.extRejectReason || task.pendingReason || task.rejectReason || (task.history && task.history.length > 0)) && (
-                            <button onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)} className="text-[10px] text-gray-600 dark:text-gray-400 underline">History</button>
-                          )}
-                          {canAct && task.assignedToId === user?.id && (
-                            <Link href={`/user/tasks/${task.id}`} className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded hover:bg-indigo-700">Open</Link>
-                          )}
-                        </div>
-                        {expandedTaskId === task.id && (
-                          <div className="mt-2 space-y-1 text-xs">
-                            {task.adminRemarks && <p className="text-blue-600 dark:text-blue-400"><span className="font-medium">Admin Remarks:</span> {task.adminRemarks}</p>}
-                            {task.voiceNoteUrl && <p className="text-purple-600 dark:text-purple-400"><span className="font-medium">Voice Note:</span> <audio controls src={task.voiceNoteUrl} className="inline-block ml-2 max-w-[200px]" /></p>}
-                            {task.completedRemarks && <p className="text-green-600 dark:text-green-400"><span className="font-medium">Completed Remarks:</span> {task.completedRemarks}</p>}
-                            {task.extendReason && <p className="text-orange-600 dark:text-orange-400"><span className="font-medium">Extend Reason:</span> {task.extendReason}</p>}
-                            {task.lastExtReason && <p className="text-gray-600 dark:text-gray-400"><span className="font-medium">Last Ext Reason:</span> {task.lastExtReason}</p>}
-                            {task.reassignReason && <p className="text-orange-600 dark:text-orange-400"><span className="font-medium">Reassign Reason:</span> {task.reassignReason} {task.reassignedBy && `by ${task.reassignedBy}`}</p>}
-                            {task.rejectReason && <p className="text-red-600 dark:text-red-400"><span className="font-medium">Reject Reason:</span> {task.rejectReason}</p>}
-                            {task.extRejectReason && <p className="text-red-600 dark:text-red-400"><span className="font-medium">Ext Reject Reason:</span> {task.extRejectReason} {task.extRejectedBy && `by ${task.extRejectedBy}`}</p>}
-                            {task.pendingReason && <p className="text-yellow-600 dark:text-yellow-400"><span className="font-medium">Pending Reason:</span> {task.pendingReason}</p>}
-                            {task.history && task.history.length > 0 && (
-                              <div>
-                                <p className="font-medium dark:text-white">History:</p>
-                                {task.history.map((h: any, i: number) => (
-                                  <p key={i} className="text-gray-600 dark:text-gray-400 ml-2">{h.action} by {h.by || "System"} {h.timestamp ? `at ${new Date(h.timestamp).toLocaleString()}` : ""} {h.note ? `- ${h.note}` : ""}</p>
-                                ))}
-                              </div>
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-gray-100 dark:bg-gray-800 text-left">
+                    <th className="px-3 py-2 border dark:border-gray-700 font-medium">#</th>
+                    <th className="px-3 py-2 border dark:border-gray-700 font-medium">Task Name</th>
+                    <th className="px-3 py-2 border dark:border-gray-700 font-medium">Category</th>
+                    <th className="px-3 py-2 border dark:border-gray-700 font-medium">Site</th>
+                    <th className="px-3 py-2 border dark:border-gray-700 font-medium">Requested By</th>
+                    <th className="px-3 py-2 border dark:border-gray-700 font-medium">Deadline</th>
+                    <th className="px-3 py-2 border dark:border-gray-700 font-medium">Status</th>
+                    <th className="px-3 py-2 border dark:border-gray-700 font-medium">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginated.map((task, idx) => {
+                    const canAct = !task.locked && task.status !== "COMPLETED" && task.status !== "LOCKED" && task.status !== "REJECTED";
+                    const overdue = isOverdue(task);
+                    return (
+                      <tr key={task.id} className={`${overdue ? "bg-red-50 dark:bg-red-900/20" : "bg-white dark:bg-gray-900"} hover:bg-gray-50 dark:hover:bg-gray-800`}>
+                        <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-300">{(page - 1) * perPage + idx + 1}</td>
+                        <td className="px-3 py-2 border dark:border-gray-700">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium dark:text-white">{task.name}</span>
+                            {overdue && <span className="text-[10px] bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-300 px-1.5 py-0.5 rounded-full font-medium">Overdue</span>}
+                          </div>
+                          {task.description && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">{task.description}</p>}
+                        </td>
+                        <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-300">{task.category}</td>
+                        <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-300">{task.siteProject}</td>
+                        <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-300">
+                          {task.createdById === user?.id ? "You" : (task.assignedByName || task.createdBy?.username || "Unknown")}
+                        </td>
+                        <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-300">
+                          <div>{new Date(task.deadline).toLocaleDateString()}</div>
+                          {task.userDeadline && <div className="text-xs text-gray-500 dark:text-gray-400">Your: {new Date(task.userDeadline).toLocaleDateString()}</div>}
+                          {task.extensionCount > 0 && <div className="text-xs text-red-600 dark:text-red-400">Ext: {task.extensionCount}</div>}
+                        </td>
+                        <td className="px-3 py-2 border dark:border-gray-700">
+                          <StatusBadge status={task.status} />
+                          {task.extendStatus === "PENDING" && <span className="block text-[10px] text-orange-600 dark:text-orange-400 mt-0.5">Ext Pending</span>}
+                          {task.reassignReason && <span className="block text-[10px] text-orange-600 dark:text-orange-400 mt-0.5">Reassigned</span>}
+                        </td>
+                        <td className="px-3 py-2 border dark:border-gray-700">
+                          <div className="flex gap-1 flex-wrap">
+                            {task.hasAttachment && (
+                              <button onClick={async () => { if (!task.attachmentUrl) { const full = await api.tasks.getById(task.id); if (full.attachmentUrl) openAttachment(full.attachmentUrl, `${task.name}_attachment`); } else { openAttachment(task.attachmentUrl, `${task.name}_attachment`); } }} className="text-[10px] text-blue-600 dark:text-blue-400 underline">Attachment</button>
+                            )}
+                            {task.hasCompletedAttachment && (
+                              <button onClick={async () => { if (!task.completedAttachmentUrl) { const full = await api.tasks.getById(task.id); if (full.completedAttachmentUrl) openAttachment(full.completedAttachmentUrl, `${task.name}_completed`); } else { openAttachment(task.completedAttachmentUrl, `${task.name}_completed`); } }} className="text-[10px] text-green-600 dark:text-green-400 underline">Complete File</button>
+                            )}
+                            {task.voiceNoteUrl && (
+                              <button onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)} className="text-[10px] text-purple-600 dark:text-purple-400 underline">Voice</button>
+                            )}
+                            {task.adminRemarks && (
+                              <button onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)} className="text-[10px] text-blue-600 dark:text-blue-400 underline">Remarks</button>
+                            )}
+                            {(task.extendReason || task.lastExtReason || task.completedRemarks || task.reassignReason || task.extRejectReason || task.pendingReason || task.rejectReason || (task.history && task.history.length > 0)) && (
+                              <button onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)} className="text-[10px] text-gray-600 dark:text-gray-400 underline">History</button>
+                            )}
+                            {canAct && task.assignedToId === user?.id && (
+                              <Link href={`/user/tasks/${task.id}`} className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded hover:bg-indigo-700">Open</Link>
                             )}
                           </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                          {expandedTaskId === task.id && (
+                            <div className="mt-2 space-y-1 text-xs">
+                              {task.adminRemarks && <p className="text-blue-600 dark:text-blue-400"><span className="font-medium">Admin Remarks:</span> {task.adminRemarks}</p>}
+                              {task.voiceNoteUrl && <p className="text-purple-600 dark:text-purple-400"><span className="font-medium">Voice Note:</span> <audio controls src={task.voiceNoteUrl} className="inline-block ml-2 max-w-[200px]" /></p>}
+                              {task.completedRemarks && <p className="text-green-600 dark:text-green-400"><span className="font-medium">Completed Remarks:</span> {task.completedRemarks}</p>}
+                              {task.extendReason && <p className="text-orange-600 dark:text-orange-400"><span className="font-medium">Extend Reason:</span> {task.extendReason}</p>}
+                              {task.lastExtReason && <p className="text-gray-600 dark:text-gray-400"><span className="font-medium">Last Ext Reason:</span> {task.lastExtReason}</p>}
+                              {task.reassignReason && <p className="text-orange-600 dark:text-orange-400"><span className="font-medium">Reassign Reason:</span> {task.reassignReason} {task.reassignedBy && `by ${task.reassignedBy}`}</p>}
+                              {task.rejectReason && <p className="text-red-600 dark:text-red-400"><span className="font-medium">Reject Reason:</span> {task.rejectReason}</p>}
+                              {task.extRejectReason && <p className="text-red-600 dark:text-red-400"><span className="font-medium">Ext Reject Reason:</span> {task.extRejectReason} {task.extRejectedBy && `by ${task.extRejectedBy}`}</p>}
+                              {task.pendingReason && <p className="text-yellow-600 dark:text-yellow-400"><span className="font-medium">Pending Reason:</span> {task.pendingReason}</p>}
+                              {task.history && task.history.length > 0 && (
+                                <div>
+                                  <p className="font-medium dark:text-white">History:</p>
+                                  {task.history.map((h: any, i: number) => (
+                                    <p key={i} className="text-gray-600 dark:text-gray-400 ml-2">{h.action} by {h.by || "System"} {h.timestamp ? `at ${new Date(h.timestamp).toLocaleString()}` : ""} {h.note ? `- ${h.note}` : ""}</p>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalItems={filteredTasks.length}
+              perPage={perPage}
+              onPageChange={setPage}
+              onPerPageChange={(n) => { setPerPage(n); setPage(1); }}
+            />
+          </>
         )}
       </div>
     </div>
