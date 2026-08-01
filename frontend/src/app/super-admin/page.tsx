@@ -44,7 +44,7 @@ export default function SuperAdminPage() {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
   const [tab, setTab] = useState<"stats" | "all" | "pending" | "reassigned" | "users" | "admins" | "categories" | "sites">("stats");
-  const [pendingFilter, setPendingFilter] = useState<"all" | "general" | "overdue" | "extension" | "reassign">("all");
+  const [pendingFilter, setPendingFilter] = useState<"all" | "general" | "overdue" | "extension" | "reassign" | "awaitingApproval">("all");
   const [reassigningId, setReassigningId] = useState<string | null>(null);
   const [reassignUserId, setReassignUserId] = useState("");
   const [reassignReason, setReassignReason] = useState("");
@@ -238,27 +238,34 @@ export default function SuperAdminPage() {
   const completedTasks = tasks.filter((t) => t.status === "COMPLETED" && !t.locked);
   const lockedTasks = tasks.filter((t) => t.status === "LOCKED" || t.locked);
   const reassignedTasks = tasks.filter((t) => t.reassignReason);
-  const pendingTasks = tasks.filter((t) => t.status !== "COMPLETED" && t.status !== "LOCKED" && t.status !== "VERIFIED");
-  const generalPendingCount = pendingTasks.filter((t) => !t.reassignReason && t.extendStatus !== "PENDING" && !isOverdue(t)).length;
-  const overdueCount = pendingTasks.filter((t) => isOverdue(t) && !t.reassignReason && t.extendStatus !== "PENDING").length;
-  const extensionCount = pendingTasks.filter((t) => t.extendStatus === "PENDING").length;
-  const reassignCount = pendingTasks.filter((t) => t.reassignReason).length;
+  const pendingTasks = tasks.filter((t) => t.status !== "LOCKED" && t.status !== "VERIFIED");
+  const generalPendingCount = pendingTasks.filter((t) => t.status !== "COMPLETED" && !t.reassignReason && t.extendStatus !== "PENDING" && !isOverdue(t)).length;
+  const overdueCount = pendingTasks.filter((t) => t.status !== "COMPLETED" && isOverdue(t) && !t.reassignReason && t.extendStatus !== "PENDING").length;
+  const extensionCount = pendingTasks.filter((t) => t.status !== "COMPLETED" && t.extendStatus === "PENDING").length;
+  const reassignCount = pendingTasks.filter((t) => t.status !== "COMPLETED" && t.reassignReason).length;
+  const awaitingApprovalCount = tasks.filter((t) => t.status === "COMPLETED" && !t.locked).length;
 
   const filteredTasks = tasks.filter((t) => {
     if (topAction === "site" && selectedSite) {
       if (t.siteProject !== selectedSite) return false;
     }
     if (tab === "pending") {
-      if (t.status === "COMPLETED" || t.status === "LOCKED" || t.status === "VERIFIED") return false;
-      if (pendingFilter === "general") {
+      if (t.status === "LOCKED" || t.status === "VERIFIED") return false;
+      if (pendingFilter === "awaitingApproval") {
+        if (t.status !== "COMPLETED" || t.locked) return false;
+      } else if (pendingFilter === "general") {
+        if (t.status === "COMPLETED") return false;
         if (t.reassignReason) return false;
         if (t.extendStatus === "PENDING") return false;
         if (isOverdue(t)) return false;
       } else if (pendingFilter === "overdue") {
+        if (t.status === "COMPLETED") return false;
         if (!isOverdue(t)) return false;
       } else if (pendingFilter === "extension") {
+        if (t.status === "COMPLETED") return false;
         if (t.extendStatus !== "PENDING") return false;
       } else if (pendingFilter === "reassign") {
+        if (t.status === "COMPLETED") return false;
         if (!t.reassignReason) return false;
       }
     }
@@ -550,6 +557,7 @@ export default function SuperAdminPage() {
                   { key: "overdue" as const, label: "Overdue", count: overdueCount },
                   { key: "extension" as const, label: "Extension Requests", count: extensionCount },
                   { key: "reassign" as const, label: "Reassign (Incomplete)", count: reassignCount },
+                  { key: "awaitingApproval" as const, label: "Awaiting Approval", count: awaitingApprovalCount },
                 ].map((f) => (
                   <button key={f.key} onClick={() => { setPendingFilter(f.key); setPage(1); }} className={`px-3 py-1.5 rounded-full text-xs font-medium ${pendingFilter === f.key ? "bg-amber-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}>
                     {f.label} ({f.count})

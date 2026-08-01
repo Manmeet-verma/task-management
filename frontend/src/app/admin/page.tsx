@@ -31,7 +31,7 @@ export default function AdminPage() {
   const [perPage, setPerPage] = useState(10);
   const [tab, setTab] = useState<"all" | "pending" | "users" | "categories" | "sites">("all");
   const [quickFilter, setQuickFilter] = useState<"all" | "pending" | "overdue" | "extension" | "reassign" | "completed">("all");
-  const [pendingFilter, setPendingFilter] = useState<"all" | "general" | "overdue" | "extension" | "reassign">("all");
+  const [pendingFilter, setPendingFilter] = useState<"all" | "general" | "overdue" | "extension" | "reassign" | "awaitingApproval">("all");
   const [reassigningId, setReassigningId] = useState<string | null>(null);
   const [reassignUserId, setReassignUserId] = useState("");
   const [reassignReason, setReassignReason] = useState("");
@@ -228,11 +228,12 @@ export default function AdminPage() {
     try { await api.sites.delete(id); loadData(); } catch (err) { console.error(err); }
   };
 
-  const allPendingTasks = tasks.filter((t) => t.status !== "COMPLETED" && t.status !== "LOCKED" && t.status !== "VERIFIED");
-  const generalPendingCount = allPendingTasks.filter((t) => !t.reassignReason && t.extendStatus !== "PENDING" && !isOverdue(t)).length;
-  const overdueCount = allPendingTasks.filter((t) => isOverdue(t) && !t.reassignReason && t.extendStatus !== "PENDING").length;
-  const extensionCount = allPendingTasks.filter((t) => t.extendStatus === "PENDING").length;
-  const reassignCount = allPendingTasks.filter((t) => t.reassignReason).length;
+  const allPendingTasks = tasks.filter((t) => t.status !== "LOCKED" && t.status !== "VERIFIED");
+  const generalPendingCount = allPendingTasks.filter((t) => t.status !== "COMPLETED" && !t.reassignReason && t.extendStatus !== "PENDING" && !isOverdue(t)).length;
+  const overdueCount = allPendingTasks.filter((t) => t.status !== "COMPLETED" && isOverdue(t) && !t.reassignReason && t.extendStatus !== "PENDING").length;
+  const extensionCount = allPendingTasks.filter((t) => t.status !== "COMPLETED" && t.extendStatus === "PENDING").length;
+  const reassignCount = allPendingTasks.filter((t) => t.status !== "COMPLETED" && t.reassignReason).length;
+  const awaitingApprovalCount = tasks.filter((t) => t.status === "COMPLETED" && !t.locked).length;
   const completedCount = tasks.filter((t) => t.status === "COMPLETED" || t.status === "LOCKED").length;
 
   const filteredTasks = tasks.filter((t) => {
@@ -240,16 +241,22 @@ export default function AdminPage() {
       if (t.siteProject !== selectedSite) return false;
     }
     if (tab === "pending") {
-      if (t.status === "COMPLETED" || t.status === "LOCKED" || t.status === "VERIFIED") return false;
-      if (pendingFilter === "general") {
+      if (t.status === "LOCKED" || t.status === "VERIFIED") return false;
+      if (pendingFilter === "awaitingApproval") {
+        if (t.status !== "COMPLETED" || t.locked) return false;
+      } else if (pendingFilter === "general") {
+        if (t.status === "COMPLETED") return false;
         if (t.reassignReason) return false;
         if (t.extendStatus === "PENDING") return false;
         if (isOverdue(t)) return false;
       } else if (pendingFilter === "overdue") {
+        if (t.status === "COMPLETED") return false;
         if (!isOverdue(t)) return false;
       } else if (pendingFilter === "extension") {
+        if (t.status === "COMPLETED") return false;
         if (t.extendStatus !== "PENDING") return false;
       } else if (pendingFilter === "reassign") {
+        if (t.status === "COMPLETED") return false;
         if (!t.reassignReason) return false;
       }
     } else if (tab === "all") {
@@ -457,6 +464,7 @@ export default function AdminPage() {
                   { key: "overdue" as const, label: "Overdue", count: overdueCount },
                   { key: "extension" as const, label: "Extension Requests", count: extensionCount },
                   { key: "reassign" as const, label: "Reassign (Incomplete)", count: reassignCount },
+                  { key: "awaitingApproval" as const, label: "Awaiting Approval", count: awaitingApprovalCount },
                 ].map((f) => (
                   <button key={f.key} onClick={() => { setPendingFilter(f.key); setPage(1); }} className={`px-3 py-1.5 rounded-full text-xs font-medium ${pendingFilter === f.key ? "bg-indigo-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}>
                     {f.label} ({f.count})
