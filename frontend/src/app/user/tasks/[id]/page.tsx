@@ -36,6 +36,7 @@ export default function TaskDetailPage() {
 
   const [showVoiceAfterComplete, setShowVoiceAfterComplete] = useState(false);
   const [showVoiceAfterExtend, setShowVoiceAfterExtend] = useState(false);
+  const [showVoiceInComplete, setShowVoiceInComplete] = useState(false);
 
   const [reassigning, setReassigning] = useState(false);
   const [reassignUserId, setReassignUserId] = useState("");
@@ -375,7 +376,7 @@ export default function TaskDetailPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Attach Files (optional)</label>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <input ref={completeFileInputRef} type="file" multiple onChange={handleFileSelect} className="hidden" />
                   <button type="button" onClick={() => completeFileInputRef.current?.click()} className="bg-blue-500 text-white px-3 py-2 rounded-md hover:bg-blue-600 text-sm">
                     + Add File (Any Type)
@@ -384,7 +385,15 @@ export default function TaskDetailPage() {
                   <button type="button" onClick={() => completeCameraInputRef.current?.click()} className="bg-purple-500 text-white px-3 py-2 rounded-md hover:bg-purple-600 text-sm">
                     Camera
                   </button>
+                  <button type="button" onClick={() => setShowVoiceInComplete(!showVoiceInComplete)} className={`px-3 py-2 rounded-md text-sm ${showVoiceInComplete ? "bg-red-500 text-white hover:bg-red-600" : "bg-green-500 text-white hover:bg-green-600"}`}>
+                    {showVoiceInComplete ? "Close Voice Note" : "Voice Note"}
+                  </button>
                 </div>
+                {showVoiceInComplete && (
+                  <div className="mt-3">
+                    <VoiceRecorder taskId={taskId} onSent={() => { setShowVoiceInComplete(false); loadTask(); }} />
+                  </div>
+                )}
                 {completeFiles.length > 0 && (
                   <div className="mt-3 grid grid-cols-3 gap-2">
                     {completeFilePreviews.map((preview, i) => (
@@ -413,11 +422,6 @@ export default function TaskDetailPage() {
                 <button type="button" onClick={() => { setShowCompleteForm(false); setCompleteRemarks(""); setCompleteFiles([]); setCompleteFilePreviews([]); }} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">Cancel</button>
               </div>
             </form>
-
-            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Or record a voice note (optional):</p>
-              <VoiceRecorder taskId={taskId} onSent={() => loadTask()} />
-            </div>
           </div>
         )}
 
