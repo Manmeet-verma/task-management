@@ -29,7 +29,8 @@ export default function UserPage() {
   const [selectedSite, setSelectedSite] = useState<string>("");
   const [now, setNow] = useState(new Date());
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
-  const [cardFilter, setCardFilter] = useState<"all" | "pending" | "completed" | "pendingReview" | "overdue" | "reassigned" | "extension">("all");
+  const [tab, setTab] = useState<"all" | "pending" | "completed">("all");
+  const [pendingFilter, setPendingFilter] = useState<"general" | "extend" | "overdue" | "awaitingApproval" | "reassign">("general");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
 
@@ -91,35 +92,40 @@ export default function UserPage() {
     return overdueThreshold < now && task.status !== "COMPLETED" && task.status !== "LOCKED" && task.status !== "VERIFIED";
   };
 
-  const allPendingTasks = myTasks.filter((t) => t.status !== "COMPLETED" && t.status !== "LOCKED" && t.status !== "VERIFIED");
-  const pendingTasks = allPendingTasks.filter((t) => !t.reassignReason && t.extendStatus !== "PENDING" && !isOverdue(t));
-  const completedTasks = myTasks.filter((t) => t.status === "COMPLETED" || t.status === "LOCKED");
-  const pendingReviewTasks = myTasks.filter((t) => t.status === "PENDING");
-  const overdueTasks = allPendingTasks.filter((t) => isOverdue(t));
-  const reassignedTasks = allPendingTasks.filter((t) => t.reassignReason);
-  const extensionTasks = allPendingTasks.filter((t) => t.extendStatus === "PENDING");
+  const allPendingTasks = myTasks.filter((t) => t.status !== "LOCKED" && t.status !== "VERIFIED");
+  const completedTasks = myTasks.filter((t) => t.status === "LOCKED");
+  const pendingReviewTasks = myTasks.filter((t) => t.status === "COMPLETED" && !t.locked);
+  const generalPendingCount = allPendingTasks.filter((t) => t.status !== "COMPLETED" && !t.reassignReason && t.extendStatus !== "PENDING" && !isOverdue(t)).length;
+  const extendDateCount = allPendingTasks.filter((t) => t.status !== "COMPLETED" && t.extendStatus === "PENDING").length;
+  const overdueCount = allPendingTasks.filter((t) => t.status !== "COMPLETED" && isOverdue(t) && !t.reassignReason && t.extendStatus !== "PENDING").length;
+  const awaitingApprovalCount = allPendingTasks.filter((t) => t.status === "COMPLETED" && !t.locked).length;
+  const reassignCount = allPendingTasks.filter((t) => t.status !== "COMPLETED" && t.reassignReason).length;
 
   const filteredTasks = myTasks.filter((t) => {
     if (topAction === "site" && selectedSite) {
       if (t.siteProject !== selectedSite) return false;
     }
-    if (t.status === "COMPLETED" || t.status === "LOCKED" || t.status === "VERIFIED") {
-      if (cardFilter === "pending" || cardFilter === "overdue" || cardFilter === "reassigned" || cardFilter === "extension") return false;
-    }
-    if (cardFilter === "pending") {
-      if (t.reassignReason) return false;
-      if (t.extendStatus === "PENDING") return false;
-      if (isOverdue(t)) return false;
-    } else if (cardFilter === "completed") {
-      if (t.status !== "COMPLETED" && t.status !== "LOCKED") return false;
-    } else if (cardFilter === "pendingReview") {
-      if (t.status !== "PENDING") return false;
-    } else if (cardFilter === "overdue") {
-      if (!isOverdue(t)) return false;
-    } else if (cardFilter === "reassigned") {
-      if (!t.reassignReason) return false;
-    } else if (cardFilter === "extension") {
-      if (t.extendStatus !== "PENDING") return false;
+    if (tab === "pending") {
+      if (t.status === "LOCKED" || t.status === "VERIFIED") return false;
+      if (pendingFilter === "general") {
+        if (t.status === "COMPLETED") return false;
+        if (t.reassignReason) return false;
+        if (t.extendStatus === "PENDING") return false;
+        if (isOverdue(t)) return false;
+      } else if (pendingFilter === "extend") {
+        if (t.status === "COMPLETED") return false;
+        if (t.extendStatus !== "PENDING") return false;
+      } else if (pendingFilter === "overdue") {
+        if (t.status === "COMPLETED") return false;
+        if (!isOverdue(t)) return false;
+      } else if (pendingFilter === "awaitingApproval") {
+        if (t.status !== "COMPLETED" || t.locked) return false;
+      } else if (pendingFilter === "reassign") {
+        if (t.status === "COMPLETED") return false;
+        if (!t.reassignReason) return false;
+      }
+    } else if (tab === "completed") {
+      if (t.status !== "LOCKED") return false;
     }
     return true;
   });
@@ -190,46 +196,43 @@ export default function UserPage() {
 
         {topAction !== "create" && myTasks.length > 0 && (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 mb-6">
-              <button onClick={() => { setCardFilter("all"); setPage(1); }} className={`border rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer ${cardFilter === "all" ? "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-300 dark:border-indigo-700" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"}`}>
-                <p className="text-sm text-gray-500 dark:text-gray-400">All Tasks</p>
-                <p className="text-2xl font-bold dark:text-white">{myTasks.length}</p>
-              </button>
-              <button onClick={() => { setCardFilter("pending"); setPage(1); }} className={`border rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer ${cardFilter === "pending" ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"}`}>
-                <p className="text-sm text-gray-500 dark:text-gray-400">All Assigned</p>
-                <p className="text-2xl font-bold text-blue-600">{pendingTasks.length}</p>
-              </button>
-              <button onClick={() => { setCardFilter("completed"); setPage(1); }} className={`border rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer ${cardFilter === "completed" ? "bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"}`}>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Approved & Locked</p>
-                <p className="text-2xl font-bold text-green-600">{completedTasks.length}</p>
-              </button>
-              <button onClick={() => { setCardFilter("pendingReview"); setPage(1); }} className={`border rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer ${cardFilter === "pendingReview" ? "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"}`}>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Pending Review</p>
-                <p className="text-2xl font-bold text-yellow-600">{pendingReviewTasks.length}</p>
-              </button>
-              <button onClick={() => { setCardFilter("overdue"); setPage(1); }} className={`border rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer ${cardFilter === "overdue" ? "bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700" : "bg-white dark:bg-gray-800 border-red-200 dark:border-red-700"}`}>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Overdue</p>
-                <p className="text-2xl font-bold text-red-600">{overdueTasks.length}</p>
-              </button>
-              <button onClick={() => { setCardFilter("reassigned"); setPage(1); }} className={`border rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer ${cardFilter === "reassigned" ? "bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-700" : "bg-white dark:bg-gray-800 border-orange-200 dark:border-orange-700"}`}>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Reassign (Incomplete)</p>
-                <p className="text-2xl font-bold text-orange-600">{reassignedTasks.length}</p>
-              </button>
-              <button onClick={() => { setCardFilter("extension"); setPage(1); }} className={`border rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer ${cardFilter === "extension" ? "bg-purple-50 dark:bg-purple-900/20 border-purple-300 dark:border-purple-700" : "bg-white dark:bg-gray-800 border-purple-200 dark:border-purple-700"}`}>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Extension Requests</p>
-                <p className="text-2xl font-bold text-purple-600">{extensionTasks.length}</p>
-              </button>
+            <div className="flex gap-4 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+              {[
+                { key: "all" as const, label: "All Tasks", count: myTasks.length },
+                { key: "pending" as const, label: "Pending", count: allPendingTasks.length },
+                { key: "completed" as const, label: "Approved & Locked", count: completedTasks.length },
+              ].map((t) => (
+                <button key={t.key} onClick={() => { setTab(t.key); setPage(1); setPendingFilter("general"); }} className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${tab === t.key ? "border-indigo-600 text-indigo-600 dark:text-indigo-400" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"}`}>
+                  {t.label} ({t.count})
+                </button>
+              ))}
             </div>
+
+            {tab === "pending" && (
+              <div className="flex gap-2 mb-4 flex-wrap">
+                {[
+                  { key: "general" as const, label: "General Pending", count: generalPendingCount },
+                  { key: "extend" as const, label: "Extend Date", count: extendDateCount },
+                  { key: "overdue" as const, label: "Overdue", count: overdueCount },
+                  { key: "awaitingApproval" as const, label: "Awaiting Approval", count: awaitingApprovalCount },
+                  { key: "reassign" as const, label: "Reassign (Incomplete)", count: reassignCount },
+                ].map((f) => (
+                  <button key={f.key} onClick={() => { setPendingFilter(f.key); setPage(1); }} className={`px-3 py-1.5 rounded-full text-xs font-medium ${pendingFilter === f.key ? "bg-indigo-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}>
+                    {f.label} ({f.count})
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold dark:text-white">
-                {cardFilter === "all" && "All Tasks"}
-                {cardFilter === "pending" && "All Assigned Tasks"}
-                {cardFilter === "completed" && "Approved & Locked Tasks"}
-                {cardFilter === "pendingReview" && "Pending Review Tasks"}
-                {cardFilter === "overdue" && "Overdue Tasks"}
-                {cardFilter === "reassigned" && "Reassign (Incomplete) Tasks"}
-                {cardFilter === "extension" && "Extension Requests"}
+                {tab === "all" && "All Tasks"}
+                {tab === "pending" && pendingFilter === "general" && "General Pending Tasks"}
+                {tab === "pending" && pendingFilter === "extend" && "Extend Date Tasks"}
+                {tab === "pending" && pendingFilter === "overdue" && "Overdue Tasks"}
+                {tab === "pending" && pendingFilter === "awaitingApproval" && "Awaiting Approval Tasks"}
+                {tab === "pending" && pendingFilter === "reassign" && "Reassign (Incomplete) Tasks"}
+                {tab === "completed" && "Approved & Locked Tasks"}
                 <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">({filteredTasks.length})</span>
               </h2>
             </div>
