@@ -471,63 +471,85 @@ export default function AdminPage() {
               <button onClick={() => downloadExcel(tasksToExcelRows(filteredTasks), "admin_tasks")} className="bg-green-600 text-white px-3 py-1.5 rounded-md hover:bg-green-700 text-xs font-medium">Download Excel</button>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
                 <thead>
-                  <tr className="border-b border-gray-200 dark:border-gray-700">
-                    {["Task Name", "Category", "Site", "Assigned To", "Assigned By", "Deadline", "Overdue", "Status", "Actions"].map((h) => (
-                      <th key={h} className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">{h}</th>
-                    ))}
+                  <tr className="bg-gray-100 dark:bg-gray-800 text-left">
+                    <th className="px-3 py-2 border dark:border-gray-700 font-medium">#</th>
+                    <th className="px-3 py-2 border dark:border-gray-700 font-medium">Task Name</th>
+                    <th className="px-3 py-2 border dark:border-gray-700 font-medium">Category</th>
+                    <th className="px-3 py-2 border dark:border-gray-700 font-medium">Site</th>
+                    <th className="px-3 py-2 border dark:border-gray-700 font-medium">Assigned To</th>
+                    <th className="px-3 py-2 border dark:border-gray-700 font-medium">Assigned By</th>
+                    <th className="px-3 py-2 border dark:border-gray-700 font-medium">Deadline</th>
+                    <th className="px-3 py-2 border dark:border-gray-700 font-medium">Status</th>
+                    <th className="px-3 py-2 border dark:border-gray-700 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {paginated.map((task) => {
+                  {paginated.map((task, idx) => {
                     const canManage = canLockReassignDelete(task);
                     const overdue = isOverdue(task);
                     return (
-                      <tr key={task.id} className={`border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 ${overdue ? "bg-red-50 dark:bg-red-900/10" : ""}`}>
-                        <td className="px-4 py-3 font-medium dark:text-white">{task.name}</td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{task.category}</td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{task.siteProject}</td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
-                          {task.assignedTo?.username || "-"}
+                      <tr key={task.id} className={`${overdue ? "bg-red-50 dark:bg-red-900/20" : "bg-white dark:bg-gray-900"} hover:bg-gray-50 dark:hover:bg-gray-800`}>
+                        <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-300">{(page - 1) * perPage + idx + 1}</td>
+                        <td className="px-3 py-2 border dark:border-gray-700">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium dark:text-white">{task.name}</span>
+                            {overdue && <span className="text-[10px] bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-300 px-1.5 py-0.5 rounded-full font-medium">Overdue</span>}
+                          </div>
+                          {task.description && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">{task.description}</p>}
                         </td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
-                          {task.assignedByName || task.createdBy?.username || "-"}
+                        <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-300">{task.category}</td>
+                        <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-300">{task.siteProject}</td>
+                        <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-300">{task.assignedTo?.username || "-"}</td>
+                        <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-300">{task.assignedByName || task.createdBy?.username || "-"}</td>
+                        <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-300">
+                          <div>{new Date(task.deadline).toLocaleDateString()}</div>
+                          {task.extensionCount > 0 && <div className="text-xs text-red-600 dark:text-red-400">Ext: {task.extensionCount}</div>}
                         </td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{new Date(task.deadline).toLocaleDateString()}</td>
-                        <td className="px-4 py-3">
-                          {overdue ? <span className="text-xs bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-300 px-2 py-0.5 rounded-full font-medium">Overdue</span> : <span className="text-xs text-gray-400">-</span>}
+                        <td className="px-3 py-2 border dark:border-gray-700">
+                          <StatusBadge status={task.status} />
+                          {task.extendStatus === "PENDING" && <span className="block text-[10px] text-orange-600 dark:text-orange-400 mt-0.5">Ext Pending</span>}
+                          {task.reassignReason && <span className="block text-[10px] text-orange-600 dark:text-orange-400 mt-0.5">Reassigned</span>}
                         </td>
-                        <td className="px-4 py-3"><StatusBadge status={task.status} /></td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-2 border dark:border-gray-700">
                           <div className="flex gap-1 flex-wrap items-center">
+                            {task.attachmentUrl && (
+                              <button onClick={() => openAttachment(task.attachmentUrl!, `${task.name}_attachment`)} className="text-[10px] text-blue-600 dark:text-blue-400 underline">Attachment</button>
+                            )}
+                            {task.completedAttachmentUrl && (
+                              <button onClick={() => openAttachment(task.completedAttachmentUrl!, `${task.name}_completed`)} className="text-[10px] text-green-600 dark:text-green-400 underline">Complete File</button>
+                            )}
+                            {task.completedAttachments && task.completedAttachments.length > 1 && task.completedAttachments.map((att, i) => (
+                              <button key={i} onClick={() => openAttachment(att, `${task.name}_completed_${i + 2}`)} className="text-[10px] text-green-600 dark:text-green-400 underline">File {i + 2}</button>
+                            ))}
+                            {task.extendAttachments && task.extendAttachments.length > 0 && task.extendAttachments.map((att, i) => (
+                              <button key={i} onClick={() => openAttachment(att, `${task.name}_extend_${i + 1}`)} className="text-[10px] text-orange-600 dark:text-orange-400 underline">Ext File {i + 1}</button>
+                            ))}
                             {!task.locked && task.status !== "LOCKED" && task.status !== "COMPLETED" && canManage && (
-                              <Link href={`/admin/tasks/${task.id}/edit`} className="text-xs text-indigo-600 hover:underline px-1">Edit</Link>
+                              <Link href={`/admin/tasks/${task.id}/edit`} className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded hover:bg-indigo-700">Edit</Link>
                             )}
                             {task.status === "COMPLETED" && !task.locked && canManage && (
-                              <button onClick={() => handleApproveComplete(task.id)} className="text-xs text-green-600 hover:underline px-1">Accept & Approve</button>
+                              <button onClick={() => handleApproveComplete(task.id)} className="text-[10px] bg-green-600 text-white px-2 py-0.5 rounded hover:bg-green-700">Accept & Approve</button>
                             )}
                             {task.extendStatus === "PENDING" && canManage && (
                               <>
-                                <button onClick={() => handleApproveExtend(task.id)} className="text-xs text-green-600 hover:underline px-1">Accept Ext</button>
-                                <button onClick={() => { setRejectExtendId(task.id); setRejectExtendReason(""); }} className="text-xs text-red-600 hover:underline px-1">Reject Ext</button>
+                                <button onClick={() => handleApproveExtend(task.id)} className="text-[10px] bg-green-600 text-white px-2 py-0.5 rounded hover:bg-green-700">Accept Ext</button>
+                                <button onClick={() => { setRejectExtendId(task.id); setRejectExtendReason(""); }} className="text-[10px] bg-red-600 text-white px-2 py-0.5 rounded hover:bg-red-700">Reject Ext</button>
                               </>
                             )}
                             {canManage && !task.locked && task.status !== "LOCKED" && task.status !== "COMPLETED" && (
-                              <button onClick={() => { setReassigningId(task.id); setReassignUserId(""); setReassignReason(""); }} className="text-xs text-orange-600 hover:underline px-1">Reassign</button>
-                            )}
-                            {isOverdue(task) && task.status !== "COMPLETED" && task.status !== "LOCKED" && (
-                              <button onClick={() => { setRemarksTaskId(task.id); setRemarksText(task.adminRemarks || ""); }} className="text-xs text-blue-600 hover:underline px-1">Remarks</button>
-                            )}
-                            {task.status !== "COMPLETED" && task.status !== "LOCKED" && (
-                              <button onClick={() => { setExpandedTaskId(expandedTaskId === task.id ? null : task.id); }} className="text-xs text-purple-600 hover:underline px-1">Voice Note</button>
+                              <button onClick={() => { setReassigningId(task.id); setReassignUserId(""); setReassignReason(""); }} className="text-[10px] text-orange-600 dark:text-orange-400 underline">Reassign</button>
                             )}
                             {canManage && (
-                              <button onClick={() => handleDeleteTask(task.id)} className="text-xs text-red-600 hover:underline px-1">Delete</button>
+                              <button onClick={() => handleDeleteTask(task.id)} className="text-[10px] text-red-600 dark:text-red-400 underline">Delete</button>
                             )}
-                            {(task.extendReason || task.lastExtReason || task.completedRemarks || task.reassignReason || task.extRejectReason || task.pendingReason || task.rejectReason || task.adminRemarks || task.voiceNoteUrl || task.attachmentUrl || task.completedAttachmentUrl || task.completedAttachments?.length || task.extendAttachments?.length || (task.history && task.history.length > 0)) && (
-                              <button onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)} className="text-xs text-blue-600 hover:underline px-1">
+                            {task.voiceNoteUrl && (
+                              <button onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)} className="text-[10px] text-purple-600 dark:text-purple-400 underline">Voice</button>
+                            )}
+                            {(task.extendReason || task.lastExtReason || task.completedRemarks || task.reassignReason || task.extRejectReason || task.pendingReason || task.rejectReason || task.adminRemarks || task.attachmentUrl || task.completedAttachmentUrl || task.completedAttachments?.length || task.extendAttachments?.length || (task.history && task.history.length > 0)) && (
+                              <button onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)} className="text-[10px] text-gray-600 dark:text-gray-400 underline">
                                 {expandedTaskId === task.id ? "Hide" : "Details"}
                               </button>
                             )}
