@@ -190,7 +190,7 @@ export default function AdminPage() {
     }
     if (tab === "all") {
       if (quickFilter === "pending") {
-        const match = t.status === "PENDING" || t.extendStatus === "PENDING" || (t.reassignReason && t.status !== "LOCKED");
+        const match = t.status === "PENDING" || t.extendStatus === "PENDING";
         if (!match) return false;
       } else if (quickFilter === "overdue") {
         if (!isOverdue(t) || t.status === "COMPLETED" || t.status === "LOCKED") return false;

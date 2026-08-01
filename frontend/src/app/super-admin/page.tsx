@@ -195,14 +195,14 @@ export default function SuperAdminPage() {
   const completedTasks = tasks.filter((t) => t.status === "COMPLETED" && !t.locked);
   const lockedTasks = tasks.filter((t) => t.status === "LOCKED" || t.locked);
   const reassignedTasks = tasks.filter((t) => t.reassignReason);
-  const pendingTasks = tasks.filter((t) => t.status === "PENDING" || t.extendStatus === "PENDING" || (t.reassignReason && t.status !== "LOCKED"));
+  const pendingTasks = tasks.filter((t) => t.status === "PENDING" || t.extendStatus === "PENDING");
 
   const filteredTasks = tasks.filter((t) => {
     if (topAction === "site" && selectedSite) {
       if (t.siteProject !== selectedSite) return false;
     }
     if (tab === "pending") {
-      let matchTab: boolean = t.status === "PENDING" || t.extendStatus === "PENDING" || (!!t.reassignReason && t.status !== "LOCKED");
+      let matchTab: boolean = t.status === "PENDING" || t.extendStatus === "PENDING";
       if (pendingFilter === "general") matchTab = t.status === "PENDING" && !isOverdue(t) && !t.reassignReason;
       else if (pendingFilter === "overdue") matchTab = isOverdue(t) && t.status !== "COMPLETED" && t.status !== "LOCKED";
       else if (pendingFilter === "extension") matchTab = t.extendStatus === "PENDING";
