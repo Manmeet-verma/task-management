@@ -180,6 +180,7 @@ export interface Task {
   completedAttachmentUrl?: string;
   completedAttachmentType?: string;
   completedAttachments?: string[];
+  completedAttachmentCount?: number;
   hasAttachment?: boolean;
   hasCompletedAttachment?: boolean;
   hasExtendAttachments?: boolean;

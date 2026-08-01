@@ -55,6 +55,7 @@ export default function AdminPage() {
         setExpandedTaskData(fullTask);
       } catch (err) {
         console.error("Failed to load task details:", err);
+        alert("Failed to load task details. Please try again.");
       }
     }
   };
@@ -80,20 +81,27 @@ export default function AdminPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const openTaskAttachment = async (task: Task, type: "attachment" | "completed" | "completedExtra" | "extend", index?: number) => {
+  const openTaskAttachment = async (task: Task, type: "attachment" | "completed" | "extend", index?: number) => {
     try {
       const fullTask = await api.tasks.getById(task.id);
-      if (type === "attachment" && fullTask.attachmentUrl) {
-        openAttachment(fullTask.attachmentUrl, `${task.name}_attachment`);
-      } else if (type === "completed" && fullTask.completedAttachmentUrl) {
-        openAttachment(fullTask.completedAttachmentUrl, `${task.name}_completed`);
-      } else if (type === "completedExtra" && fullTask.completedAttachments && index !== undefined) {
-        openAttachment(fullTask.completedAttachments[index], `${task.name}_completed_${index + 2}`);
-      } else if (type === "extend" && fullTask.extendAttachments && index !== undefined) {
-        openAttachment(fullTask.extendAttachments[index], `${task.name}_extend_${index + 1}`);
+      if (type === "attachment") {
+        const url = fullTask.attachmentUrl || (fullTask.attachments && fullTask.attachments[0]);
+        if (url) openAttachment(url, `${task.name}_attachment`);
+        else alert("Attachment data not found");
+      } else if (type === "completed") {
+        const all = fullTask.completedAttachments || (fullTask.completedAttachmentUrl ? [fullTask.completedAttachmentUrl] : []);
+        const url = index !== undefined ? all[index] : all[0];
+        if (url) openAttachment(url, `${task.name}_completed${index !== undefined ? `_${index + 1}` : ""}`);
+        else alert("Completion attachment not found");
+      } else if (type === "extend") {
+        const all = fullTask.extendAttachments || [];
+        const url = index !== undefined ? all[index] : all[0];
+        if (url) openAttachment(url, `${task.name}_extend${index !== undefined ? `_${index + 1}` : ""}`);
+        else alert("Extension attachment not found");
       }
     } catch (err) {
       console.error("Failed to load attachment:", err);
+      alert("Failed to load attachment. Please try again.");
     }
   };
 
@@ -549,18 +557,15 @@ export default function AdminPage() {
                         </td>
                         <td className="px-3 py-2 border dark:border-gray-700">
                           <div className="flex gap-1 flex-wrap items-center">
-                            {(task.hasAttachment || task.attachmentUrl) && (
+                            {task.hasAttachment && (
                               <button onClick={() => openTaskAttachment(task, "attachment")} className="text-[10px] text-blue-600 dark:text-blue-400 underline">Attachment</button>
                             )}
-                            {(task.hasCompletedAttachment || task.completedAttachmentUrl) && (
+                            {task.hasCompletedAttachment && (
                               <button onClick={() => openTaskAttachment(task, "completed")} className="text-[10px] text-green-600 dark:text-green-400 underline">Complete File</button>
                             )}
-                            {(task.hasCompletedAttachment || (task.completedAttachments && task.completedAttachments.length > 1)) && task.completedAttachments && task.completedAttachments.length > 1 && task.completedAttachments.map((att, i) => (
-                              <button key={i} onClick={() => openTaskAttachment(task, "completedExtra", i)} className="text-[10px] text-green-600 dark:text-green-400 underline">File {i + 2}</button>
-                            ))}
-                            {(task.hasExtendAttachments || (task.extendAttachments && task.extendAttachments.length > 0)) && task.extendAttachments && task.extendAttachments.length > 0 && task.extendAttachments.map((att, i) => (
-                              <button key={i} onClick={() => openTaskAttachment(task, "extend", i)} className="text-[10px] text-orange-600 dark:text-orange-400 underline">Ext File {i + 1}</button>
-                            ))}
+                            {task.hasExtendAttachments && (
+                              <button onClick={() => openTaskAttachment(task, "extend")} className="text-[10px] text-orange-600 dark:text-orange-400 underline">Ext Files</button>
+                            )}
                             {!task.locked && task.status !== "LOCKED" && task.status !== "COMPLETED" && canManage && (
                               <Link href={`/admin/tasks/${task.id}/edit`} className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded hover:bg-indigo-700">Edit</Link>
                             )}
@@ -636,14 +641,21 @@ export default function AdminPage() {
                                   {expandedTaskData.completedRemarks && <p className="text-green-600 dark:text-green-400"><span className="font-medium">Completed Remarks:</span> {expandedTaskData.completedRemarks}</p>}
                                   {expandedTaskData.pendingReason && <p className="text-yellow-600 dark:text-yellow-400"><span className="font-medium">Pending Reason:</span> {expandedTaskData.pendingReason}</p>}
                                   {expandedTaskData.rejectReason && <p className="text-red-600 dark:text-red-400"><span className="font-medium">Reject Reason:</span> {expandedTaskData.rejectReason}</p>}
-                                  {expandedTaskData.attachmentUrl && <p className="text-blue-600 dark:text-blue-400"><span className="font-medium">Attachment:</span> <button onClick={() => openAttachment(expandedTaskData.attachmentUrl!, `${task.name}_attachment`)} className="underline">View</button></p>}
-                                  {expandedTaskData.completedAttachmentUrl && <p className="text-green-600 dark:text-green-400"><span className="font-medium">Completion Attachment:</span> <button onClick={() => openAttachment(expandedTaskData.completedAttachmentUrl!, `${task.name}_completed`)} className="underline">View</button></p>}
-                                  {expandedTaskData.completedAttachments && expandedTaskData.completedAttachments.length > 1 && expandedTaskData.completedAttachments.map((att, i) => (
-                                    <p key={i} className="text-green-600 dark:text-green-400"><span className="font-medium">Attachment {i + 2}:</span> <button onClick={() => openAttachment(att, `${task.name}_completed_${i + 2}`)} className="underline">View</button></p>
-                                  ))}
-                                  {expandedTaskData.extendAttachments && expandedTaskData.extendAttachments.length > 0 && expandedTaskData.extendAttachments.map((att, i) => (
-                                    <p key={i} className="text-orange-600 dark:text-orange-400"><span className="font-medium">Extend File {i + 1}:</span> <button onClick={() => openAttachment(att, `${task.name}_extend_${i + 1}`)} className="underline">View</button></p>
-                                  ))}
+                                  {(expandedTaskData.attachmentUrl || (expandedTaskData.attachments && expandedTaskData.attachments.length > 0)) && (
+                                    <p className="text-blue-600 dark:text-blue-400"><span className="font-medium">Task Attachment:</span> {(expandedTaskData.attachments || [expandedTaskData.attachmentUrl] as string[]).filter(Boolean).map((att: string, i: number) => (
+                                      <button key={i} onClick={() => openAttachment(att, `${task.name}_att_${i + 1}`)} className="underline ml-1">View {expandedTaskData.attachments && expandedTaskData.attachments.length > 1 ? `(${i + 1})` : ""}</button>
+                                    ))}</p>
+                                  )}
+                                  {(expandedTaskData.completedAttachmentUrl || (expandedTaskData.completedAttachments && expandedTaskData.completedAttachments.length > 0)) && (
+                                    <p className="text-green-600 dark:text-green-400"><span className="font-medium">Completion Attachments:</span> {(expandedTaskData.completedAttachments || [expandedTaskData.completedAttachmentUrl] as string[]).filter(Boolean).map((att: string, i: number) => (
+                                      <button key={i} onClick={() => openAttachment(att, `${task.name}_completed_${i + 1}`)} className="underline ml-1">View {i + 1}</button>
+                                    ))}</p>
+                                  )}
+                                  {expandedTaskData.extendAttachments && expandedTaskData.extendAttachments.length > 0 && (
+                                    <p className="text-orange-600 dark:text-orange-400"><span className="font-medium">Extend Attachments:</span> {expandedTaskData.extendAttachments.filter(Boolean).map((att: string, i: number) => (
+                                      <button key={i} onClick={() => openAttachment(att, `${task.name}_extend_${i + 1}`)} className="underline ml-1">View {i + 1}</button>
+                                    ))}</p>
+                                  )}
                                   {expandedTaskData.voiceNoteUrl && <div className="mt-1"><VoicePlayer src={expandedTaskData.voiceNoteUrl} /></div>}
                                   {canManage && (
                                     <div className="mt-2">

@@ -30,6 +30,7 @@ export async function GET(request: Request) {
       const assignedToIds = task.assignedToIds || [];
       const hasAttachment = !!(task.attachmentUrl || (task.attachments && task.attachments.length > 0));
       const hasCompletedAttachment = !!(task.completedAttachmentUrl || (task.completedAttachments && task.completedAttachments.length > 0));
+      const completedAttachmentCount = (task.completedAttachments && task.completedAttachments.length) || (task.completedAttachmentUrl ? 1 : 0);
       const hasExtendAttachments = !!(task.extendAttachments && task.extendAttachments.length > 0);
       const hasVoiceNote = !!task.voiceNoteUrl;
       return {
@@ -41,6 +42,7 @@ export async function GET(request: Request) {
         extendAttachments: undefined,
         hasAttachment,
         hasCompletedAttachment,
+        completedAttachmentCount,
         hasExtendAttachments,
         hasVoiceNote,
         createdBy: users[task.createdById] ? { id: task.createdById, username: users[task.createdById].username } : null,

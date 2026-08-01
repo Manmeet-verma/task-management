@@ -26,9 +26,8 @@ export async function POST(
     const { id } = await params;
     const contentType = request.headers.get("content-type") || "";
     let remarks = "";
-    let attachmentUrl = "";
-    let attachmentType = "";
     const allAttachments: string[] = [];
+    let firstFileType = "";
 
     if (contentType.includes("multipart/form-data")) {
       const formData = await request.formData();
@@ -39,17 +38,12 @@ export async function POST(
           const bytes = await file.arrayBuffer();
           const base64 = Buffer.from(bytes).toString("base64");
           allAttachments.push(`data:${file.type};base64,${base64}`);
+          if (!firstFileType) firstFileType = file.type;
         }
-      }
-      if (allAttachments.length > 0) {
-        attachmentUrl = allAttachments[0];
-        attachmentType = files[0].type;
       }
     } else {
       const body = await request.json();
       remarks = body.remarks || "";
-      attachmentUrl = body.attachmentUrl || "";
-      attachmentType = body.attachmentType || "";
     }
 
     if (!remarks || !remarks.trim()) {
@@ -75,12 +69,11 @@ export async function POST(
       updatedAt: new Date().toISOString(),
     };
 
-    if (attachmentUrl) {
-      updateData.completedAttachmentUrl = attachmentUrl;
-      updateData.completedAttachmentType = attachmentType;
-    }
-    if (allAttachments.length > 1) {
+    if (allAttachments.length > 0) {
+      updateData.completedAttachmentUrl = allAttachments[0];
+      updateData.completedAttachmentType = firstFileType;
       updateData.completedAttachments = allAttachments;
+      updateData.completedAttachmentCount = allAttachments.length;
     }
 
     await update(taskRef, updateData);

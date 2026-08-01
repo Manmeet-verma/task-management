@@ -293,10 +293,10 @@ export default function UserPage() {
                         <td className="px-3 py-2 border dark:border-gray-700">
                           <div className="flex gap-1 flex-wrap">
                             {task.hasAttachment && (
-                              <button onClick={async () => { if (!task.attachmentUrl) { const full = await api.tasks.getById(task.id); if (full.attachmentUrl) openAttachment(full.attachmentUrl, `${task.name}_attachment`); } else { openAttachment(task.attachmentUrl, `${task.name}_attachment`); } }} className="text-[10px] text-blue-600 dark:text-blue-400 underline">Attachment</button>
+                              <button onClick={async () => { try { const full = await api.tasks.getById(task.id); const url = full.attachmentUrl || (full.attachments && full.attachments[0]); if (url) openAttachment(url, `${task.name}_attachment`); else alert("Attachment not found"); } catch { alert("Failed to load attachment"); } }} className="text-[10px] text-blue-600 dark:text-blue-400 underline">Attachment</button>
                             )}
                             {task.hasCompletedAttachment && (
-                              <button onClick={async () => { if (!task.completedAttachmentUrl) { const full = await api.tasks.getById(task.id); if (full.completedAttachmentUrl) openAttachment(full.completedAttachmentUrl, `${task.name}_completed`); } else { openAttachment(task.completedAttachmentUrl, `${task.name}_completed`); } }} className="text-[10px] text-green-600 dark:text-green-400 underline">Complete File</button>
+                              <button onClick={async () => { try { const full = await api.tasks.getById(task.id); const url = full.completedAttachmentUrl || (full.completedAttachments && full.completedAttachments[0]); if (url) openAttachment(url, `${task.name}_completed`); else alert("Completion attachment not found"); } catch { alert("Failed to load attachment"); } }} className="text-[10px] text-green-600 dark:text-green-400 underline">Complete File</button>
                             )}
                             {task.hasVoiceNote && (
                               <button onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)} className="text-[10px] text-purple-600 dark:text-purple-400 underline">Voice</button>
