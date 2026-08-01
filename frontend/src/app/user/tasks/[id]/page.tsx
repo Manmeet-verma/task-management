@@ -8,6 +8,7 @@ import Navbar from "@/components/Navbar";
 import StatusBadge from "@/components/StatusBadge";
 import { openAttachment } from "@/lib/attachment";
 import VoiceRecorder from "@/components/VoiceRecorder";
+import VoicePlayer from "@/components/VoicePlayer";
 
 export default function TaskDetailPage() {
   const { user, loading } = useAuth();
@@ -493,7 +494,7 @@ export default function TaskDetailPage() {
         {task.voiceNoteUrl && (
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-purple-200 dark:border-purple-800 p-6 mb-6">
             <h2 className="text-lg font-semibold mb-3 dark:text-white">Voice Note from Admin</h2>
-            <audio controls src={task.voiceNoteUrl} className="w-full" />
+            <VoicePlayer src={task.voiceNoteUrl} />
           </div>
         )}
 

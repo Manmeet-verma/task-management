@@ -9,6 +9,7 @@ import StatusBadge from "@/components/StatusBadge";
 import Pagination from "@/components/Pagination";
 import Link from "next/link";
 import { openAttachment } from "@/lib/attachment";
+import VoicePlayer from "@/components/VoicePlayer";
 
 export default function UserPage() {
   const { user, loading, logout } = useAuth();
@@ -298,7 +299,7 @@ export default function UserPage() {
                           {expandedTaskId === task.id && (
                             <div className="mt-2 space-y-1 text-xs">
                               {task.adminRemarks && <p className="text-blue-600 dark:text-blue-400"><span className="font-medium">Admin Remarks:</span> {task.adminRemarks}</p>}
-                              {task.voiceNoteUrl && <p className="text-purple-600 dark:text-purple-400"><span className="font-medium">Voice Note:</span> <audio controls src={task.voiceNoteUrl} className="inline-block ml-2 max-w-[200px]" /></p>}
+                              {task.voiceNoteUrl && <div className="mt-1"><VoicePlayer src={task.voiceNoteUrl} /></div>}
                               {task.completedRemarks && <p className="text-green-600 dark:text-green-400"><span className="font-medium">Completed Remarks:</span> {task.completedRemarks}</p>}
                               {task.extendReason && <p className="text-orange-600 dark:text-orange-400"><span className="font-medium">Extend Reason:</span> {task.extendReason}</p>}
                               {task.lastExtReason && <p className="text-gray-600 dark:text-gray-400"><span className="font-medium">Last Ext Reason:</span> {task.lastExtReason}</p>}

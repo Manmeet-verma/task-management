@@ -10,6 +10,7 @@ import Pagination from "@/components/Pagination";
 import Link from "next/link";
 import { openAttachment } from "@/lib/attachment";
 import VoiceRecorder from "@/components/VoiceRecorder";
+import VoicePlayer from "@/components/VoicePlayer";
 
 export default function AdminPage() {
   const { user, loading } = useAuth();
@@ -531,7 +532,7 @@ export default function AdminPage() {
                               {task.extendAttachments && task.extendAttachments.length > 0 && task.extendAttachments.map((att, i) => (
                                 <p key={i} className="text-orange-600 dark:text-orange-400"><span className="font-medium">Extend File {i + 1}:</span> <button onClick={() => openAttachment(att, `${task.name}_extend_${i + 1}`)} className="underline">View</button></p>
                               ))}
-                              {task.voiceNoteUrl && <p className="text-purple-600 dark:text-purple-400"><span className="font-medium">Voice Note:</span> <audio controls src={task.voiceNoteUrl} className="inline-block ml-2 max-w-xs" /></p>}
+                              {task.voiceNoteUrl && <div className="mt-1"><VoicePlayer src={task.voiceNoteUrl} /></div>}
                               {canManage && (
                                 <div className="mt-2">
                                   <VoiceRecorder taskId={task.id} onSent={loadData} />
