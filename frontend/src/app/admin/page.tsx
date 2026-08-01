@@ -334,6 +334,9 @@ export default function AdminPage() {
         ) : tab === "users" || tab === "categories" || tab === "sites" ? (
           tab === "users" ? (
             <div className="space-y-4">
+              <div className="flex justify-end">
+                <button onClick={() => downloadExcel(usersToExcelRows(users), "admin_users")} className="bg-green-600 text-white px-3 py-1.5 rounded-md hover:bg-green-700 text-xs font-medium">Download Users Excel</button>
+              </div>
               {users.map((u) => (
                 <div key={u.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center justify-between">
                   <div>
@@ -433,10 +436,7 @@ export default function AdminPage() {
 
             <div className="flex justify-between items-center mb-2">
               <p className="text-sm text-gray-500 dark:text-gray-400">{filteredTasks.length} task(s) found</p>
-              <div className="flex gap-2">
-                <button onClick={() => downloadExcel(tasksToExcelRows(filteredTasks), "admin_tasks")} className="bg-green-600 text-white px-3 py-1.5 rounded-md hover:bg-green-700 text-xs font-medium">Download Excel</button>
-                {tab === "users" && <button onClick={() => downloadExcel(usersToExcelRows(users), "admin_users")} className="bg-green-600 text-white px-3 py-1.5 rounded-md hover:bg-green-700 text-xs font-medium">Download Users Excel</button>}
-              </div>
+              <button onClick={() => downloadExcel(tasksToExcelRows(filteredTasks), "admin_tasks")} className="bg-green-600 text-white px-3 py-1.5 rounded-md hover:bg-green-700 text-xs font-medium">Download Excel</button>
             </div>
 
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">
