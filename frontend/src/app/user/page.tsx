@@ -120,6 +120,7 @@ export default function UserPage() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold dark:text-white">My Tasks ({myTasks.length})</h1>
           <div className="flex gap-2">
+            <Link href="/tasks/new" className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">+ Create Request</Link>
             <button onClick={() => setShowChangePassword(true)} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 text-sm">Change Password</button>
           </div>
         </div>
