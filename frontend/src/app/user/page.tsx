@@ -120,7 +120,6 @@ export default function UserPage() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold dark:text-white">My Tasks ({myTasks.length})</h1>
           <div className="flex gap-2">
-            <Link href="/tasks/new" className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">+ Create Request</Link>
             <button onClick={() => setShowChangePassword(true)} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 text-sm">Change Password</button>
           </div>
         </div>
@@ -128,9 +127,6 @@ export default function UserPage() {
         <div className="flex gap-2 mb-6">
           <button onClick={() => { setTopAction("all"); setSelectedSite(""); }} className={`px-4 py-2 rounded-md text-sm font-medium ${topAction === "all" ? "bg-indigo-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}>
             All Task
-          </button>
-          <button onClick={() => { setTopAction("create"); setSelectedSite(""); }} className={`px-4 py-2 rounded-md text-sm font-medium ${topAction === "create" ? "bg-indigo-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}>
-            Create Request
           </button>
           <div className="relative">
             <button onClick={() => setTopAction("site")} className={`px-4 py-2 rounded-md text-sm font-medium ${topAction === "site" ? "bg-indigo-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}>
@@ -148,14 +144,6 @@ export default function UserPage() {
             )}
           </div>
         </div>
-
-        {topAction === "create" && (
-          <div className="mb-6">
-            <Link href="/tasks/new" className="block w-full text-center bg-indigo-600 text-white px-6 py-4 rounded-lg hover:bg-indigo-700 text-lg font-medium">
-              + Create New Request
-            </Link>
-          </div>
-        )}
 
         {showChangePassword && (
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-6">
