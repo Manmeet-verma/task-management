@@ -195,19 +195,32 @@ export default function SuperAdminPage() {
   const completedTasks = tasks.filter((t) => t.status === "COMPLETED" && !t.locked);
   const lockedTasks = tasks.filter((t) => t.status === "LOCKED" || t.locked);
   const reassignedTasks = tasks.filter((t) => t.reassignReason);
-  const pendingTasks = tasks.filter((t) => t.status !== "COMPLETED" && t.status !== "LOCKED" && t.status !== "VERIFIED");
+  const pendingTasks = tasks.filter((t) => {
+    if (t.status === "COMPLETED" || t.status === "LOCKED" || t.status === "VERIFIED") return false;
+    return true;
+  });
+  const generalPendingCount = pendingTasks.filter((t) => !t.reassignReason && t.extendStatus !== "PENDING" && !isOverdue(t)).length;
+  const overdueCount = pendingTasks.filter((t) => isOverdue(t)).length;
+  const extensionCount = pendingTasks.filter((t) => t.extendStatus === "PENDING").length;
+  const reassignCount = pendingTasks.filter((t) => t.reassignReason).length;
 
   const filteredTasks = tasks.filter((t) => {
     if (topAction === "site" && selectedSite) {
       if (t.siteProject !== selectedSite) return false;
     }
     if (tab === "pending") {
-      let matchTab: boolean = t.status !== "COMPLETED" && t.status !== "LOCKED" && t.status !== "VERIFIED";
-      if (pendingFilter === "general") matchTab = t.status === "PENDING" && !isOverdue(t) && !t.reassignReason;
-      else if (pendingFilter === "overdue") matchTab = isOverdue(t) && t.status !== "COMPLETED" && t.status !== "LOCKED";
-      else if (pendingFilter === "extension") matchTab = t.extendStatus === "PENDING";
-      else if (pendingFilter === "reassign") matchTab = !!t.reassignReason && t.status !== "LOCKED";
-      if (!matchTab) return false;
+      if (t.status === "COMPLETED" || t.status === "LOCKED" || t.status === "VERIFIED") return false;
+      if (pendingFilter === "general") {
+        if (t.reassignReason) return false;
+        if (t.extendStatus === "PENDING") return false;
+        if (isOverdue(t)) return false;
+      } else if (pendingFilter === "overdue") {
+        if (!isOverdue(t)) return false;
+      } else if (pendingFilter === "extension") {
+        if (t.extendStatus !== "PENDING") return false;
+      } else if (pendingFilter === "reassign") {
+        if (!t.reassignReason) return false;
+      }
     }
     if (tab === "reassigned") { if (!t.reassignReason) return false; }
     const matchStatus = !filterStatus || t.status === filterStatus;
@@ -486,14 +499,14 @@ export default function SuperAdminPage() {
             {(tab === "all" || tab === "pending" || tab === "reassigned") && tab === "pending" && (
               <div className="flex gap-2 mb-4 flex-wrap">
                 {[
-                  { key: "all" as const, label: "All Pending" },
-                  { key: "general" as const, label: "General Pending" },
-                  { key: "overdue" as const, label: "Overdue" },
-                  { key: "extension" as const, label: "Extension Requests" },
-                  { key: "reassign" as const, label: "Reassign" },
+                  { key: "all" as const, label: "All Pending", count: pendingTasks.length },
+                  { key: "general" as const, label: "General Pending", count: generalPendingCount },
+                  { key: "overdue" as const, label: "Overdue", count: overdueCount },
+                  { key: "extension" as const, label: "Extension Requests", count: extensionCount },
+                  { key: "reassign" as const, label: "Reassign (Incomplete)", count: reassignCount },
                 ].map((f) => (
                   <button key={f.key} onClick={() => { setPendingFilter(f.key); setPage(1); }} className={`px-3 py-1.5 rounded-full text-xs font-medium ${pendingFilter === f.key ? "bg-amber-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}>
-                    {f.label}
+                    {f.label} ({f.count})
                   </button>
                 ))}
               </div>
