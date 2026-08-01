@@ -184,20 +184,31 @@ export default function AdminPage() {
     try { await api.sites.delete(id); loadData(); } catch (err) { console.error(err); }
   };
 
+  const allPendingTasks = tasks.filter((t) => t.status !== "COMPLETED" && t.status !== "LOCKED" && t.status !== "VERIFIED");
+  const generalPendingCount = allPendingTasks.filter((t) => !t.reassignReason && t.extendStatus !== "PENDING" && !isOverdue(t)).length;
+  const overdueCount = allPendingTasks.filter((t) => isOverdue(t)).length;
+  const extensionCount = allPendingTasks.filter((t) => t.extendStatus === "PENDING").length;
+  const reassignCount = allPendingTasks.filter((t) => t.reassignReason).length;
+  const completedCount = tasks.filter((t) => t.status === "COMPLETED" || t.status === "LOCKED").length;
+
   const filteredTasks = tasks.filter((t) => {
     if (topAction === "site" && selectedSite) {
       if (t.siteProject !== selectedSite) return false;
     }
     if (tab === "all") {
       if (quickFilter === "pending") {
-        const match = t.status === "PENDING" || t.extendStatus === "PENDING";
-        if (!match) return false;
+        if (t.status === "COMPLETED" || t.status === "LOCKED" || t.status === "VERIFIED") return false;
+        if (t.reassignReason) return false;
+        if (t.extendStatus === "PENDING") return false;
+        if (isOverdue(t)) return false;
       } else if (quickFilter === "overdue") {
-        if (!isOverdue(t) || t.status === "COMPLETED" || t.status === "LOCKED") return false;
+        if (t.status === "COMPLETED" || t.status === "LOCKED" || t.status === "VERIFIED") return false;
+        if (!isOverdue(t)) return false;
       } else if (quickFilter === "extension") {
         if (t.extendStatus !== "PENDING") return false;
       } else if (quickFilter === "reassign") {
-        if (!t.reassignReason || t.status === "LOCKED") return false;
+        if (!t.reassignReason) return false;
+        if (t.status === "LOCKED") return false;
       } else if (quickFilter === "completed") {
         if (t.status !== "COMPLETED" && t.status !== "LOCKED") return false;
       }
@@ -378,18 +389,18 @@ export default function AdminPage() {
         ) : (
           <>
             <div className="flex gap-2 mb-4 flex-wrap">
-              {[
-                { key: "all" as const, label: "All" },
-                { key: "pending" as const, label: "Pending" },
-                { key: "overdue" as const, label: "Overdue" },
-                { key: "extension" as const, label: "Extension Requests" },
-                { key: "reassign" as const, label: "Reassign" },
-                { key: "completed" as const, label: "Completed" },
-              ].map((f) => (
-                <button key={f.key} onClick={() => { setQuickFilter(f.key); setPage(1); }} className={`px-3 py-1.5 rounded-full text-xs font-medium ${quickFilter === f.key ? "bg-indigo-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}>
-                  {f.label}
-                </button>
-              ))}
+                {[
+                  { key: "all" as const, label: "All", count: tasks.length },
+                  { key: "pending" as const, label: "General Pending", count: generalPendingCount },
+                  { key: "overdue" as const, label: "Overdue", count: overdueCount },
+                  { key: "extension" as const, label: "Extension Requests", count: extensionCount },
+                  { key: "reassign" as const, label: "Reassign (Incomplete)", count: reassignCount },
+                  { key: "completed" as const, label: "Completed", count: completedCount },
+                ].map((f) => (
+                  <button key={f.key} onClick={() => { setQuickFilter(f.key); setPage(1); }} className={`px-3 py-1.5 rounded-full text-xs font-medium ${quickFilter === f.key ? "bg-indigo-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}>
+                    {f.label} ({f.count})
+                  </button>
+                ))}
             </div>
 
             <div className="flex gap-4 mb-4 flex-wrap">
