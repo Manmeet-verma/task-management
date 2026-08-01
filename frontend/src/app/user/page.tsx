@@ -15,8 +15,6 @@ export default function UserPage() {
   const [myTasks, setMyTasks] = useState<Task[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [loadingData, setLoadingData] = useState(true);
-  const [tab, setTab] = useState<"all" | "assigned" | "created" | "completed" | "pending" | "reassigned" | "sites">("all");
-  const [pendingFilter, setPendingFilter] = useState<"all" | "general" | "overdue" | "extension" | "reassign">("all");
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -28,6 +26,7 @@ export default function UserPage() {
   const [selectedSite, setSelectedSite] = useState<string>("");
   const [now, setNow] = useState(new Date());
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
+  const [cardFilter, setCardFilter] = useState<"all" | "pending" | "completed" | "pendingReview" | "overdue" | "reassigned">("all");
 
   const exportToExcel = () => {
     const headers = ["#", "Task Name", "Description", "Category", "Site", "Requested By", "Deadline", "Status", "Priority", "Extensions", "Completed Remarks", "Admin Remarks"];
@@ -132,40 +131,23 @@ export default function UserPage() {
     return overdueThreshold < now && task.status !== "COMPLETED" && task.status !== "LOCKED" && task.status !== "VERIFIED";
   };
 
-  const assignedToMeTasks = myTasks.filter((t) => t.assignedToId === user?.id);
-  const createdByMeTasks = myTasks.filter((t) => t.createdById === user?.id);
+  const pendingTasks = myTasks.filter((t) => t.status === "ASSIGNED" || t.status === "IN_PROGRESS" || t.status === "ACCEPTED");
   const completedTasks = myTasks.filter((t) => t.status === "COMPLETED" || t.status === "LOCKED");
   const pendingReviewTasks = myTasks.filter((t) => t.status === "PENDING");
-  const pendingTasks = myTasks.filter((t) => t.status === "PENDING" || t.extendStatus === "PENDING" || (t.reassignReason && t.status !== "LOCKED"));
-  const reassignedTasks = myTasks.filter((t) => t.reassignReason);
   const overdueTasks = myTasks.filter((t) => isOverdue(t));
+  const reassignedTasks = myTasks.filter((t) => t.reassignReason);
 
   const filteredTasks = myTasks.filter((t) => {
     if (topAction === "site" && selectedSite) {
       if (t.siteProject !== selectedSite) return false;
     }
-    if (tab === "assigned") return t.assignedToId === user?.id;
-    if (tab === "created") return t.createdById === user?.id;
-    if (tab === "completed") return t.status === "COMPLETED" || t.status === "LOCKED";
-    if (tab === "pending") {
-      let match = t.status === "PENDING" || t.extendStatus === "PENDING" || (t.reassignReason && t.status !== "LOCKED");
-      if (pendingFilter === "general") match = t.status === "PENDING" && !isOverdue(t) && !t.reassignReason;
-      else if (pendingFilter === "overdue") match = isOverdue(t) && t.status !== "COMPLETED" && t.status !== "LOCKED";
-      else if (pendingFilter === "extension") match = t.extendStatus === "PENDING";
-      else if (pendingFilter === "reassign") match = !!t.reassignReason && t.status !== "LOCKED";
-      return match;
-    }
-    if (tab === "reassigned") return !!t.reassignReason;
+    if (cardFilter === "pending") return t.status === "ASSIGNED" || t.status === "IN_PROGRESS" || t.status === "ACCEPTED";
+    if (cardFilter === "completed") return t.status === "COMPLETED" || t.status === "LOCKED";
+    if (cardFilter === "pendingReview") return t.status === "PENDING";
+    if (cardFilter === "overdue") return isOverdue(t);
+    if (cardFilter === "reassigned") return !!t.reassignReason;
     return true;
   });
-
-  const getStatusColor = (task: Task) => {
-    if (task.status === "LOCKED") return "bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-600";
-    if (task.status === "COMPLETED") return "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800";
-    if (task.status === "PENDING") return "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800";
-    if (task.status === "REJECTED") return "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800";
-    return "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800";
-  };
 
   if (loading || !user) return null;
 
@@ -214,31 +196,6 @@ export default function UserPage() {
           </div>
         )}
 
-        {myTasks.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Total Tasks</p>
-              <p className="text-2xl font-bold dark:text-white">{myTasks.length}</p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Pending</p>
-              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{myTasks.filter((t) => t.status === "ASSIGNED" || t.status === "IN_PROGRESS" || t.status === "ACCEPTED").length}</p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Completed</p>
-              <p className="text-2xl font-bold text-green-600 dark:text-green-400">{completedTasks.length}</p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Pending Review</p>
-              <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{pendingReviewTasks.length}</p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 border border-red-200 dark:border-red-700 rounded-lg p-4">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Overdue</p>
-              <p className="text-2xl font-bold text-red-600 dark:text-red-400">{overdueTasks.length}</p>
-            </div>
-          </div>
-        )}
-
         {showChangePassword && (
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-6">
             <h2 className="text-lg font-semibold mb-4 dark:text-white">Change Password</h2>
@@ -265,53 +222,51 @@ export default function UserPage() {
           </div>
         )}
 
-        {topAction !== "create" && (
-          <div className="flex gap-4 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
-            {[
-              { key: "all" as const, label: "All", count: filteredTasks.length },
-              { key: "assigned" as const, label: "Request by User", count: filteredTasks.filter((t) => t.assignedToId === user?.id).length },
-              { key: "created" as const, label: "Created by Me", count: filteredTasks.filter((t) => t.createdById === user?.id).length },
-              { key: "completed" as const, label: "Completed", count: filteredTasks.filter((t) => t.status === "COMPLETED" || t.status === "LOCKED").length },
-              { key: "pending" as const, label: "Pending", count: pendingTasks.length },
-              { key: "reassigned" as const, label: "Reassigned", count: reassignedTasks.length },
-              { key: "sites" as const, label: "Sites", count: sites.length },
-            ].map((t) => (
-              <button key={t.key} onClick={() => { setTab(t.key); setPendingFilter("all"); }} className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${tab === t.key ? "border-indigo-600 text-indigo-600 dark:text-indigo-400" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"}`}>
-                {t.label} ({t.count})
+        {topAction !== "create" && myTasks.length > 0 && (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+              <button onClick={() => setCardFilter("all")} className={`border rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer ${cardFilter === "all" ? "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-300 dark:border-indigo-700" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"}`}>
+                <p className="text-sm text-gray-500 dark:text-gray-400">All Tasks</p>
+                <p className="text-2xl font-bold dark:text-white">{myTasks.length}</p>
               </button>
-            ))}
-          </div>
-        )}
+              <button onClick={() => setCardFilter("pending")} className={`border rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer ${cardFilter === "pending" ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"}`}>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Pending</p>
+                <p className="text-2xl font-bold text-blue-600">{pendingTasks.length}</p>
+              </button>
+              <button onClick={() => setCardFilter("completed")} className={`border rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer ${cardFilter === "completed" ? "bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"}`}>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Completed</p>
+                <p className="text-2xl font-bold text-green-600">{completedTasks.length}</p>
+              </button>
+              <button onClick={() => setCardFilter("pendingReview")} className={`border rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer ${cardFilter === "pendingReview" ? "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"}`}>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Pending Review</p>
+                <p className="text-2xl font-bold text-yellow-600">{pendingReviewTasks.length}</p>
+              </button>
+              <button onClick={() => setCardFilter("overdue")} className={`border rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer ${cardFilter === "overdue" ? "bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700" : "bg-white dark:bg-gray-800 border-red-200 dark:border-red-700"}`}>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Overdue</p>
+                <p className="text-2xl font-bold text-red-600">{overdueTasks.length}</p>
+              </button>
+              <button onClick={() => setCardFilter("reassigned")} className={`border rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer ${cardFilter === "reassigned" ? "bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-700" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"}`}>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Reassigned</p>
+                <p className="text-2xl font-bold text-orange-600">{reassignedTasks.length}</p>
+              </button>
+            </div>
 
-        {tab === "pending" && (
-          <div className="flex gap-2 mb-4 flex-wrap">
-            {[
-              { key: "all" as const, label: "All Pending" },
-              { key: "general" as const, label: "General Pending" },
-              { key: "overdue" as const, label: "Overdue" },
-              { key: "extension" as const, label: "Extension Requests" },
-              { key: "reassign" as const, label: "Reassign" },
-            ].map((f) => (
-              <button key={f.key} onClick={() => { setPendingFilter(f.key); }} className={`px-3 py-1.5 rounded-full text-xs font-medium ${pendingFilter === f.key ? "bg-indigo-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}>
-                {f.label}
-              </button>
-            ))}
-          </div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold dark:text-white">
+                {cardFilter === "all" && "All Tasks"}
+                {cardFilter === "pending" && "Pending Tasks"}
+                {cardFilter === "completed" && "Completed Tasks"}
+                {cardFilter === "pendingReview" && "Pending Review Tasks"}
+                {cardFilter === "overdue" && "Overdue Tasks"}
+                {cardFilter === "reassigned" && "Reassigned Tasks"}
+                <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">({filteredTasks.length})</span>
+              </h2>
+            </div>
+          </>
         )}
 
         {loadingData ? (
           <div className="text-center py-12 text-gray-500 dark:text-gray-400">Loading...</div>
-        ) : tab === "sites" ? (
-          <div className="space-y-2">
-            {sites.filter(s => s.status === "ACTIVE").map((site) => (
-              <div key={site.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                <p className="font-medium dark:text-white">{site.name}</p>
-                {site.description && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{site.description}</p>}
-                <p className="text-xs text-gray-400 mt-1">Created: {new Date(site.createdAt).toLocaleDateString()}</p>
-              </div>
-            ))}
-            {sites.filter(s => s.status === "ACTIVE").length === 0 && <p className="text-gray-500 dark:text-gray-400 text-center py-8">No active sites.</p>}
-          </div>
         ) : filteredTasks.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center py-8">No tasks found.</p>
         ) : (

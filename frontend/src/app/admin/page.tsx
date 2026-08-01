@@ -27,8 +27,8 @@ export default function AdminPage() {
   const [filterAssignedBy, setFilterAssignedBy] = useState("");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [tab, setTab] = useState<"all" | "created" | "assigned" | "completed" | "pending" | "reassigned" | "users" | "categories" | "sites">("all");
-  const [pendingFilter, setPendingFilter] = useState<"all" | "general" | "overdue" | "extension" | "reassign">("all");
+  const [tab, setTab] = useState<"all" | "users" | "categories" | "sites">("all");
+  const [quickFilter, setQuickFilter] = useState<"all" | "pending" | "overdue" | "extension" | "reassign" | "completed">("all");
   const [reassigningId, setReassigningId] = useState<string | null>(null);
   const [reassignUserId, setReassignUserId] = useState("");
   const [reassignReason, setReassignReason] = useState("");
@@ -165,7 +165,7 @@ export default function AdminPage() {
 
   const handleAddCategory = async () => {
     if (!newCategory.trim()) return;
-    try { await api.categories.create(newCategory); setNewCategory(""); loadData(); } catch (err) { alert(err instanceof Error ? err.message : "Failed"); }
+    try { await api.categories.create(newCategory); setNewCategory(""); loadData(); } catch (err: unknown) { alert(err instanceof Error ? err.message : "Failed"); }
   };
 
   const handleDeleteCategory = async (id: string) => {
@@ -183,34 +183,30 @@ export default function AdminPage() {
     try { await api.sites.delete(id); loadData(); } catch (err) { console.error(err); }
   };
 
-  const completedTasks = tasks.filter((t) => t.status === "COMPLETED" && !t.locked);
-  const lockedTasks = tasks.filter((t) => t.status === "LOCKED" || t.locked);
-  const reassignedTasks = tasks.filter((t) => t.reassignReason);
-  const pendingTasks = tasks.filter((t) => t.status === "PENDING" || t.extendStatus === "PENDING" || (t.reassignReason && t.status !== "LOCKED"));
-
   const filteredTasks = tasks.filter((t) => {
     if (topAction === "site" && selectedSite) {
       if (t.siteProject !== selectedSite) return false;
     }
-    let matchTab: boolean = true;
-    if (tab === "created") matchTab = t.createdById === user?.id;
-    else if (tab === "assigned") matchTab = t.assignedToId === user?.id;
-    else if (tab === "completed") matchTab = t.status === "COMPLETED" || t.status === "LOCKED";
-    else if (tab === "pending") {
-      matchTab = t.status === "PENDING" || t.extendStatus === "PENDING" || (!!t.reassignReason && t.status !== "LOCKED");
-      if (pendingFilter === "general") matchTab = t.status === "PENDING" && !isOverdue(t) && !t.reassignReason;
-      else if (pendingFilter === "overdue") matchTab = isOverdue(t) && t.status !== "COMPLETED" && t.status !== "LOCKED";
-      else if (pendingFilter === "extension") matchTab = t.extendStatus === "PENDING";
-      else if (pendingFilter === "reassign") matchTab = !!t.reassignReason && t.status !== "LOCKED";
+    if (tab === "all") {
+      if (quickFilter === "pending") {
+        const match = t.status === "PENDING" || t.extendStatus === "PENDING" || (t.reassignReason && t.status !== "LOCKED");
+        if (!match) return false;
+      } else if (quickFilter === "overdue") {
+        if (!isOverdue(t) || t.status === "COMPLETED" || t.status === "LOCKED") return false;
+      } else if (quickFilter === "extension") {
+        if (t.extendStatus !== "PENDING") return false;
+      } else if (quickFilter === "reassign") {
+        if (!t.reassignReason || t.status === "LOCKED") return false;
+      } else if (quickFilter === "completed") {
+        if (t.status !== "COMPLETED" && t.status !== "LOCKED") return false;
+      }
     }
-    else if (tab === "reassigned") matchTab = !!t.reassignReason;
-    else if (tab === "all") matchTab = true;
     const matchStatus = !filterStatus || t.status === filterStatus;
     const matchCategory = !filterCategory || t.category === filterCategory;
     const matchSite = !filterSite || t.siteProject === filterSite;
     const matchAssignedTo = !filterAssignedTo || t.assignedToId === filterAssignedTo;
     const matchAssignedBy = !filterAssignedBy || t.createdById === filterAssignedBy;
-    return matchTab && matchStatus && matchCategory && matchSite && matchAssignedTo && matchAssignedBy;
+    return matchStatus && matchCategory && matchSite && matchAssignedTo && matchAssignedBy;
   });
 
   const totalPages = Math.ceil(filteredTasks.length / perPage);
@@ -270,17 +266,12 @@ export default function AdminPage() {
 
         <div className="flex gap-4 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
           {[
-            { key: "all" as const, label: "All", count: tasks.length },
-            { key: "created" as const, label: "My Tasks", count: tasks.filter((t) => t.createdById === user?.id).length },
-            { key: "assigned" as const, label: "Request by User", count: tasks.filter((t) => t.assignedToId === user?.id).length },
-            { key: "completed" as const, label: "Completed", count: completedTasks.length + lockedTasks.length },
-            { key: "pending" as const, label: "Pending", count: pendingTasks.length },
-            { key: "reassigned" as const, label: "Reassigned", count: reassignedTasks.length },
+            { key: "all" as const, label: "All Tasks", count: tasks.length },
             { key: "users" as const, label: "Users", count: users.length },
             { key: "categories" as const, label: "Categories", count: categories.length },
             { key: "sites" as const, label: "Sites", count: sites.length },
           ].map((t) => (
-            <button key={t.key} onClick={() => { setTab(t.key); setPage(1); setFilterStatus(""); setPendingFilter("all"); }} className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${tab === t.key ? "border-indigo-600 text-indigo-600 dark:text-indigo-400" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"}`}>
+            <button key={t.key} onClick={() => { setTab(t.key); setPage(1); setFilterStatus(""); setQuickFilter("all"); }} className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${tab === t.key ? "border-indigo-600 text-indigo-600 dark:text-indigo-400" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"}`}>
               {t.label} ({t.count})
             </button>
           ))}
@@ -397,21 +388,20 @@ export default function AdminPage() {
           )
         ) : (
           <>
-            {tab === "pending" && (
-              <div className="flex gap-2 mb-4 flex-wrap">
-                {[
-                  { key: "all" as const, label: "All Pending" },
-                  { key: "general" as const, label: "General Pending" },
-                  { key: "overdue" as const, label: "Overdue" },
-                  { key: "extension" as const, label: "Extension Requests" },
-                  { key: "reassign" as const, label: "Reassign" },
-                ].map((f) => (
-                  <button key={f.key} onClick={() => { setPendingFilter(f.key); setPage(1); }} className={`px-3 py-1.5 rounded-full text-xs font-medium ${pendingFilter === f.key ? "bg-indigo-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}>
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-            )}
+            <div className="flex gap-2 mb-4 flex-wrap">
+              {[
+                { key: "all" as const, label: "All" },
+                { key: "pending" as const, label: "Pending" },
+                { key: "overdue" as const, label: "Overdue" },
+                { key: "extension" as const, label: "Extension Requests" },
+                { key: "reassign" as const, label: "Reassign" },
+                { key: "completed" as const, label: "Completed" },
+              ].map((f) => (
+                <button key={f.key} onClick={() => { setQuickFilter(f.key); setPage(1); }} className={`px-3 py-1.5 rounded-full text-xs font-medium ${quickFilter === f.key ? "bg-indigo-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}>
+                  {f.label}
+                </button>
+              ))}
+            </div>
 
             <div className="flex gap-4 mb-4 flex-wrap">
               <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }} className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 dark:text-white text-sm">
@@ -548,6 +538,12 @@ export default function AdminPage() {
                               {task.rejectReason && <p className="text-red-600 dark:text-red-400"><span className="font-medium">Reject Reason:</span> {task.rejectReason}</p>}
                               {task.attachmentUrl && <p className="text-blue-600 dark:text-blue-400"><span className="font-medium">Attachment:</span> <button onClick={() => openAttachment(task.attachmentUrl!, `${task.name}_attachment`)} className="underline">View</button></p>}
                               {task.completedAttachmentUrl && <p className="text-green-600 dark:text-green-400"><span className="font-medium">Completion Attachment:</span> <button onClick={() => openAttachment(task.completedAttachmentUrl!, `${task.name}_completed`)} className="underline">View</button></p>}
+                              {task.completedAttachments && task.completedAttachments.length > 1 && task.completedAttachments.map((att, i) => (
+                                <p key={i} className="text-green-600 dark:text-green-400"><span className="font-medium">Attachment {i + 2}:</span> <button onClick={() => openAttachment(att, `${task.name}_completed_${i + 2}`)} className="underline">View</button></p>
+                              ))}
+                              {task.extendAttachments && task.extendAttachments.length > 0 && task.extendAttachments.map((att, i) => (
+                                <p key={i} className="text-orange-600 dark:text-orange-400"><span className="font-medium">Extend File {i + 1}:</span> <button onClick={() => openAttachment(att, `${task.name}_extend_${i + 1}`)} className="underline">View</button></p>
+                              ))}
                               {task.voiceNoteUrl && <p className="text-purple-600 dark:text-purple-400"><span className="font-medium">Voice Note:</span> <audio controls src={task.voiceNoteUrl} className="inline-block ml-2 max-w-xs" /></p>}
                               {canManage && (
                                 <div className="mt-2">
