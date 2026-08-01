@@ -107,17 +107,19 @@ export default function TaskDetailPage() {
     if (!completeRemarks.trim()) { alert("Please provide remarks"); return; }
     setCompleting(true);
     try {
-      if (completeFiles.length > 0) {
-        const formData = new FormData();
-        formData.append("remarks", completeRemarks.trim());
-        for (const file of completeFiles) {
-          formData.append("files", file);
-        }
-        await api.submissions.submit(taskId, formData);
-        await api.tasks.complete(taskId, completeRemarks.trim());
-      } else {
-        await api.tasks.complete(taskId, completeRemarks.trim());
+      const formData = new FormData();
+      formData.append("remarks", completeRemarks.trim());
+      for (const file of completeFiles) {
+        formData.append("files", file);
       }
+      const token = localStorage.getItem("token");
+      const res = await fetch(`/api/tasks/${taskId}/complete`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed");
       setCompleteRemarks("");
       setCompleteFiles([]);
       setCompleteFilePreviews([]);
