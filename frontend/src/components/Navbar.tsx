@@ -138,9 +138,6 @@ export default function Navbar() {
             {user?.role === "USER" && (
               <Link href="/user" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Dashboard</Link>
             )}
-            {(user?.role === "ADMIN" || user?.role === "USER") && (
-              <Link href="/tasks/new" className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">+ New Task</Link>
-            )}
             {user && (
               <span className="text-sm text-gray-500 dark:text-gray-400">{user.username}</span>
             )}
@@ -175,7 +172,6 @@ export default function Navbar() {
             {user.role === "USER" && (
               <Link href="/user" className="text-gray-600 dark:text-gray-300">Dashboard</Link>
             )}
-            <Link href="/tasks/new" className="text-indigo-600 dark:text-indigo-400">+ New Task</Link>
           </div>
           <div className="flex items-center gap-3">
             <button onClick={() => setShowChangePassword(true)} className="text-indigo-600 dark:text-indigo-400">Change Password</button>
