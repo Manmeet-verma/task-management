@@ -29,8 +29,9 @@ export default function AdminPage() {
   const [filterAssignedBy, setFilterAssignedBy] = useState("");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [tab, setTab] = useState<"all" | "users" | "categories" | "sites">("all");
+  const [tab, setTab] = useState<"all" | "pending" | "users" | "categories" | "sites">("all");
   const [quickFilter, setQuickFilter] = useState<"all" | "pending" | "overdue" | "extension" | "reassign" | "completed">("all");
+  const [pendingFilter, setPendingFilter] = useState<"all" | "general" | "overdue" | "extension" | "reassign">("all");
   const [reassigningId, setReassigningId] = useState<string | null>(null);
   const [reassignUserId, setReassignUserId] = useState("");
   const [reassignReason, setReassignReason] = useState("");
@@ -196,7 +197,20 @@ export default function AdminPage() {
     if (topAction === "site" && selectedSite) {
       if (t.siteProject !== selectedSite) return false;
     }
-    if (tab === "all") {
+    if (tab === "pending") {
+      if (t.status === "COMPLETED" || t.status === "LOCKED" || t.status === "VERIFIED") return false;
+      if (pendingFilter === "general") {
+        if (t.reassignReason) return false;
+        if (t.extendStatus === "PENDING") return false;
+        if (isOverdue(t)) return false;
+      } else if (pendingFilter === "overdue") {
+        if (!isOverdue(t)) return false;
+      } else if (pendingFilter === "extension") {
+        if (t.extendStatus !== "PENDING") return false;
+      } else if (pendingFilter === "reassign") {
+        if (!t.reassignReason) return false;
+      }
+    } else if (tab === "all") {
       if (quickFilter === "pending") {
         if (t.status === "COMPLETED" || t.status === "LOCKED" || t.status === "VERIFIED") return false;
         if (t.reassignReason) return false;
@@ -268,11 +282,12 @@ export default function AdminPage() {
         <div className="flex gap-4 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
           {[
             { key: "all" as const, label: "All Tasks", count: tasks.length },
+            { key: "pending" as const, label: "Pending", count: allPendingTasks.length },
             { key: "users" as const, label: "Users", count: users.length },
             { key: "categories" as const, label: "Categories", count: categories.length },
             { key: "sites" as const, label: "Sites", count: sites.length },
           ].map((t) => (
-            <button key={t.key} onClick={() => { setTab(t.key); setPage(1); setFilterStatus(""); setQuickFilter("all"); }} className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${tab === t.key ? "border-indigo-600 text-indigo-600 dark:text-indigo-400" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"}`}>
+            <button key={t.key} onClick={() => { setTab(t.key); setPage(1); setFilterStatus(""); setQuickFilter("all"); setPendingFilter("all"); }} className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${tab === t.key ? "border-indigo-600 text-indigo-600 dark:text-indigo-400" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"}`}>
               {t.label} ({t.count})
             </button>
           ))}
@@ -392,6 +407,22 @@ export default function AdminPage() {
           )
         ) : (
           <>
+            {tab === "pending" && (
+              <div className="flex gap-2 mb-4 flex-wrap">
+                {[
+                  { key: "all" as const, label: "All Pending", count: allPendingTasks.length },
+                  { key: "general" as const, label: "All Assigned", count: generalPendingCount },
+                  { key: "overdue" as const, label: "Overdue", count: overdueCount },
+                  { key: "extension" as const, label: "Extension Requests", count: extensionCount },
+                  { key: "reassign" as const, label: "Reassign (Incomplete)", count: reassignCount },
+                ].map((f) => (
+                  <button key={f.key} onClick={() => { setPendingFilter(f.key); setPage(1); }} className={`px-3 py-1.5 rounded-full text-xs font-medium ${pendingFilter === f.key ? "bg-indigo-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}>
+                    {f.label} ({f.count})
+                  </button>
+                ))}
+              </div>
+            )}
+            {tab === "all" && (
             <div className="flex gap-2 mb-4 flex-wrap">
                 {[
                   { key: "all" as const, label: "All", count: tasks.length },
@@ -406,6 +437,7 @@ export default function AdminPage() {
                   </button>
                 ))}
             </div>
+            )}
 
             <div className="flex gap-4 mb-4 flex-wrap">
               <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }} className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 dark:text-white text-sm">
