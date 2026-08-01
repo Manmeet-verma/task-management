@@ -36,11 +36,28 @@ export default function AdminPage() {
   const [reassignUserId, setReassignUserId] = useState("");
   const [reassignReason, setReassignReason] = useState("");
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
+  const [expandedTaskData, setExpandedTaskData] = useState<Task | null>(null);
   const [rejectExtendId, setRejectExtendId] = useState<string | null>(null);
   const [rejectExtendReason, setRejectExtendReason] = useState("");
   const [remarksTaskId, setRemarksTaskId] = useState<string | null>(null);
   const [remarksText, setRemarksText] = useState("");
   const [now, setNow] = useState(new Date());
+
+  const toggleExpandTask = async (task: Task) => {
+    if (expandedTaskId === task.id) {
+      setExpandedTaskId(null);
+      setExpandedTaskData(null);
+    } else {
+      setExpandedTaskId(task.id);
+      setExpandedTaskData(null);
+      try {
+        const fullTask = await api.tasks.getById(task.id);
+        setExpandedTaskData(fullTask);
+      } catch (err) {
+        console.error("Failed to load task details:", err);
+      }
+    }
+  };
 
   const [showUserForm, setShowUserForm] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -62,6 +79,23 @@ export default function AdminPage() {
     const interval = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(interval);
   }, []);
+
+  const openTaskAttachment = async (task: Task, type: "attachment" | "completed" | "completedExtra" | "extend", index?: number) => {
+    try {
+      const fullTask = await api.tasks.getById(task.id);
+      if (type === "attachment" && fullTask.attachmentUrl) {
+        openAttachment(fullTask.attachmentUrl, `${task.name}_attachment`);
+      } else if (type === "completed" && fullTask.completedAttachmentUrl) {
+        openAttachment(fullTask.completedAttachmentUrl, `${task.name}_completed`);
+      } else if (type === "completedExtra" && fullTask.completedAttachments && index !== undefined) {
+        openAttachment(fullTask.completedAttachments[index], `${task.name}_completed_${index + 2}`);
+      } else if (type === "extend" && fullTask.extendAttachments && index !== undefined) {
+        openAttachment(fullTask.extendAttachments[index], `${task.name}_extend_${index + 1}`);
+      }
+    } catch (err) {
+      console.error("Failed to load attachment:", err);
+    }
+  };
 
   const loadData = async () => {
     setLoadingData(true);
@@ -515,17 +549,17 @@ export default function AdminPage() {
                         </td>
                         <td className="px-3 py-2 border dark:border-gray-700">
                           <div className="flex gap-1 flex-wrap items-center">
-                            {task.attachmentUrl && (
-                              <button onClick={() => openAttachment(task.attachmentUrl!, `${task.name}_attachment`)} className="text-[10px] text-blue-600 dark:text-blue-400 underline">Attachment</button>
+                            {(task.hasAttachment || task.attachmentUrl) && (
+                              <button onClick={() => openTaskAttachment(task, "attachment")} className="text-[10px] text-blue-600 dark:text-blue-400 underline">Attachment</button>
                             )}
-                            {task.completedAttachmentUrl && (
-                              <button onClick={() => openAttachment(task.completedAttachmentUrl!, `${task.name}_completed`)} className="text-[10px] text-green-600 dark:text-green-400 underline">Complete File</button>
+                            {(task.hasCompletedAttachment || task.completedAttachmentUrl) && (
+                              <button onClick={() => openTaskAttachment(task, "completed")} className="text-[10px] text-green-600 dark:text-green-400 underline">Complete File</button>
                             )}
-                            {task.completedAttachments && task.completedAttachments.length > 1 && task.completedAttachments.map((att, i) => (
-                              <button key={i} onClick={() => openAttachment(att, `${task.name}_completed_${i + 2}`)} className="text-[10px] text-green-600 dark:text-green-400 underline">File {i + 2}</button>
+                            {(task.hasCompletedAttachment || (task.completedAttachments && task.completedAttachments.length > 1)) && task.completedAttachments && task.completedAttachments.length > 1 && task.completedAttachments.map((att, i) => (
+                              <button key={i} onClick={() => openTaskAttachment(task, "completedExtra", i)} className="text-[10px] text-green-600 dark:text-green-400 underline">File {i + 2}</button>
                             ))}
-                            {task.extendAttachments && task.extendAttachments.length > 0 && task.extendAttachments.map((att, i) => (
-                              <button key={i} onClick={() => openAttachment(att, `${task.name}_extend_${i + 1}`)} className="text-[10px] text-orange-600 dark:text-orange-400 underline">Ext File {i + 1}</button>
+                            {(task.hasExtendAttachments || (task.extendAttachments && task.extendAttachments.length > 0)) && task.extendAttachments && task.extendAttachments.length > 0 && task.extendAttachments.map((att, i) => (
+                              <button key={i} onClick={() => openTaskAttachment(task, "extend", i)} className="text-[10px] text-orange-600 dark:text-orange-400 underline">Ext File {i + 1}</button>
                             ))}
                             {!task.locked && task.status !== "LOCKED" && task.status !== "COMPLETED" && canManage && (
                               <Link href={`/admin/tasks/${task.id}/edit`} className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded hover:bg-indigo-700">Edit</Link>
@@ -545,11 +579,11 @@ export default function AdminPage() {
                             {canManage && (
                               <button onClick={() => handleDeleteTask(task.id)} className="text-[10px] text-red-600 dark:text-red-400 underline">Delete</button>
                             )}
-                            {task.voiceNoteUrl && (
-                              <button onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)} className="text-[10px] text-purple-600 dark:text-purple-400 underline">Voice</button>
+                            {task.hasVoiceNote && (
+                              <button onClick={() => toggleExpandTask(task)} className="text-[10px] text-purple-600 dark:text-purple-400 underline">Voice</button>
                             )}
-                            {(task.extendReason || task.lastExtReason || task.completedRemarks || task.reassignReason || task.extRejectReason || task.pendingReason || task.rejectReason || task.adminRemarks || task.attachmentUrl || task.completedAttachmentUrl || task.completedAttachments?.length || task.extendAttachments?.length || (task.history && task.history.length > 0)) && (
-                              <button onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)} className="text-[10px] text-gray-600 dark:text-gray-400 underline">
+                            {(task.extendReason || task.lastExtReason || task.completedRemarks || task.reassignReason || task.extRejectReason || task.pendingReason || task.rejectReason || task.adminRemarks || task.hasAttachment || task.hasCompletedAttachment || task.hasExtendAttachments || task.hasVoiceNote || (task.history && task.history.length > 0)) && (
+                              <button onClick={() => toggleExpandTask(task)} className="text-[10px] text-gray-600 dark:text-gray-400 underline">
                                 {expandedTaskId === task.id ? "Hide" : "Details"}
                               </button>
                             )}
@@ -589,37 +623,42 @@ export default function AdminPage() {
                           )}
                           {expandedTaskId === task.id && (
                             <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-900 rounded text-xs space-y-1">
-                              {task.adminRemarks && <p className="text-blue-600 dark:text-blue-400"><span className="font-medium">Admin Remarks:</span> {task.adminRemarks}</p>}
-                              {task.reassignReason && <p className="text-orange-600 dark:text-orange-400"><span className="font-medium">Reassign Reason:</span> {task.reassignReason}</p>}
-                              {task.reassignedBy && <p className="text-orange-600 dark:text-orange-400"><span className="font-medium">Reassigned By:</span> {task.reassignedBy}</p>}
-                              {task.extendReason && <p className="text-orange-600 dark:text-orange-400"><span className="font-medium">Extension Reason:</span> {task.extendReason}</p>}
-                              {task.lastExtReason && <p className="text-gray-600 dark:text-gray-400"><span className="font-medium">Last Ext Reason:</span> {task.lastExtReason}</p>}
-                              {task.extRejectReason && <p className="text-red-600 dark:text-red-400"><span className="font-medium">Ext Reject Reason:</span> {task.extRejectReason}</p>}
-                              {task.extRejectedBy && <p className="text-red-600 dark:text-red-400"><span className="font-medium">Rejected By:</span> {task.extRejectedBy}</p>}
-                              {task.completedRemarks && <p className="text-green-600 dark:text-green-400"><span className="font-medium">Completed Remarks:</span> {task.completedRemarks}</p>}
-                              {task.pendingReason && <p className="text-yellow-600 dark:text-yellow-400"><span className="font-medium">Pending Reason:</span> {task.pendingReason}</p>}
-                              {task.rejectReason && <p className="text-red-600 dark:text-red-400"><span className="font-medium">Reject Reason:</span> {task.rejectReason}</p>}
-                              {task.attachmentUrl && <p className="text-blue-600 dark:text-blue-400"><span className="font-medium">Attachment:</span> <button onClick={() => openAttachment(task.attachmentUrl!, `${task.name}_attachment`)} className="underline">View</button></p>}
-                              {task.completedAttachmentUrl && <p className="text-green-600 dark:text-green-400"><span className="font-medium">Completion Attachment:</span> <button onClick={() => openAttachment(task.completedAttachmentUrl!, `${task.name}_completed`)} className="underline">View</button></p>}
-                              {task.completedAttachments && task.completedAttachments.length > 1 && task.completedAttachments.map((att, i) => (
-                                <p key={i} className="text-green-600 dark:text-green-400"><span className="font-medium">Attachment {i + 2}:</span> <button onClick={() => openAttachment(att, `${task.name}_completed_${i + 2}`)} className="underline">View</button></p>
-                              ))}
-                              {task.extendAttachments && task.extendAttachments.length > 0 && task.extendAttachments.map((att, i) => (
-                                <p key={i} className="text-orange-600 dark:text-orange-400"><span className="font-medium">Extend File {i + 1}:</span> <button onClick={() => openAttachment(att, `${task.name}_extend_${i + 1}`)} className="underline">View</button></p>
-                              ))}
-                              {task.voiceNoteUrl && <div className="mt-1"><VoicePlayer src={task.voiceNoteUrl} /></div>}
-                              {canManage && (
-                                <div className="mt-2">
-                                  <VoiceRecorder taskId={task.id} onSent={loadData} />
-                                </div>
-                              )}
-                              {task.history && Array.isArray(task.history) && task.history.length > 0 && (
-                                <div className="mt-2 border-t border-gray-200 dark:border-gray-700 pt-2">
-                                  <p className="font-medium text-blue-600 dark:text-blue-400 mb-1">Change History:</p>
-                                  {task.history.map((h: any, i: number) => (
-                                    <p key={i} className="text-xs text-gray-500 dark:text-gray-400">[{new Date(h.date).toLocaleString()}] {h.action}: {h.details}</p>
+                              {!expandedTaskData && <p className="text-gray-400">Loading details...</p>}
+                              {expandedTaskData && (
+                                <>
+                                  {expandedTaskData.adminRemarks && <p className="text-blue-600 dark:text-blue-400"><span className="font-medium">Admin Remarks:</span> {expandedTaskData.adminRemarks}</p>}
+                                  {expandedTaskData.reassignReason && <p className="text-orange-600 dark:text-orange-400"><span className="font-medium">Reassign Reason:</span> {expandedTaskData.reassignReason}</p>}
+                                  {expandedTaskData.reassignedBy && <p className="text-orange-600 dark:text-orange-400"><span className="font-medium">Reassigned By:</span> {expandedTaskData.reassignedBy}</p>}
+                                  {expandedTaskData.extendReason && <p className="text-orange-600 dark:text-orange-400"><span className="font-medium">Extension Reason:</span> {expandedTaskData.extendReason}</p>}
+                                  {expandedTaskData.lastExtReason && <p className="text-gray-600 dark:text-gray-400"><span className="font-medium">Last Ext Reason:</span> {expandedTaskData.lastExtReason}</p>}
+                                  {expandedTaskData.extRejectReason && <p className="text-red-600 dark:text-red-400"><span className="font-medium">Ext Reject Reason:</span> {expandedTaskData.extRejectReason}</p>}
+                                  {expandedTaskData.extRejectedBy && <p className="text-red-600 dark:text-red-400"><span className="font-medium">Rejected By:</span> {expandedTaskData.extRejectedBy}</p>}
+                                  {expandedTaskData.completedRemarks && <p className="text-green-600 dark:text-green-400"><span className="font-medium">Completed Remarks:</span> {expandedTaskData.completedRemarks}</p>}
+                                  {expandedTaskData.pendingReason && <p className="text-yellow-600 dark:text-yellow-400"><span className="font-medium">Pending Reason:</span> {expandedTaskData.pendingReason}</p>}
+                                  {expandedTaskData.rejectReason && <p className="text-red-600 dark:text-red-400"><span className="font-medium">Reject Reason:</span> {expandedTaskData.rejectReason}</p>}
+                                  {expandedTaskData.attachmentUrl && <p className="text-blue-600 dark:text-blue-400"><span className="font-medium">Attachment:</span> <button onClick={() => openAttachment(expandedTaskData.attachmentUrl!, `${task.name}_attachment`)} className="underline">View</button></p>}
+                                  {expandedTaskData.completedAttachmentUrl && <p className="text-green-600 dark:text-green-400"><span className="font-medium">Completion Attachment:</span> <button onClick={() => openAttachment(expandedTaskData.completedAttachmentUrl!, `${task.name}_completed`)} className="underline">View</button></p>}
+                                  {expandedTaskData.completedAttachments && expandedTaskData.completedAttachments.length > 1 && expandedTaskData.completedAttachments.map((att, i) => (
+                                    <p key={i} className="text-green-600 dark:text-green-400"><span className="font-medium">Attachment {i + 2}:</span> <button onClick={() => openAttachment(att, `${task.name}_completed_${i + 2}`)} className="underline">View</button></p>
                                   ))}
-                                </div>
+                                  {expandedTaskData.extendAttachments && expandedTaskData.extendAttachments.length > 0 && expandedTaskData.extendAttachments.map((att, i) => (
+                                    <p key={i} className="text-orange-600 dark:text-orange-400"><span className="font-medium">Extend File {i + 1}:</span> <button onClick={() => openAttachment(att, `${task.name}_extend_${i + 1}`)} className="underline">View</button></p>
+                                  ))}
+                                  {expandedTaskData.voiceNoteUrl && <div className="mt-1"><VoicePlayer src={expandedTaskData.voiceNoteUrl} /></div>}
+                                  {canManage && (
+                                    <div className="mt-2">
+                                      <VoiceRecorder taskId={task.id} onSent={loadData} />
+                                    </div>
+                                  )}
+                                  {expandedTaskData.history && Array.isArray(expandedTaskData.history) && expandedTaskData.history.length > 0 && (
+                                    <div className="mt-2 border-t border-gray-200 dark:border-gray-700 pt-2">
+                                      <p className="font-medium text-blue-600 dark:text-blue-400 mb-1">Change History:</p>
+                                      {expandedTaskData.history.map((h: any, i: number) => (
+                                        <p key={i} className="text-xs text-gray-500 dark:text-gray-400">[{new Date(h.date).toLocaleString()}] {h.action}: {h.details}</p>
+                                      ))}
+                                    </div>
+                                  )}
+                                </>
                               )}
                             </div>
                           )}

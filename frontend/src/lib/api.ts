@@ -182,6 +182,8 @@ export interface Task {
   completedAttachments?: string[];
   hasAttachment?: boolean;
   hasCompletedAttachment?: boolean;
+  hasExtendAttachments?: boolean;
+  hasVoiceNote?: boolean;
   extRejectReason?: string;
   extRejectedBy?: string;
   adminRemarks?: string;

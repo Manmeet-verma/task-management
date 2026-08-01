@@ -28,8 +28,21 @@ export async function GET(request: Request) {
 
     const enriched = tasks.map((task: any) => {
       const assignedToIds = task.assignedToIds || [];
+      const hasAttachment = !!(task.attachmentUrl || (task.attachments && task.attachments.length > 0));
+      const hasCompletedAttachment = !!(task.completedAttachmentUrl || (task.completedAttachments && task.completedAttachments.length > 0));
+      const hasExtendAttachments = !!(task.extendAttachments && task.extendAttachments.length > 0);
+      const hasVoiceNote = !!task.voiceNoteUrl;
       return {
         ...task,
+        attachmentUrl: undefined,
+        attachments: undefined,
+        completedAttachmentUrl: undefined,
+        completedAttachments: undefined,
+        extendAttachments: undefined,
+        hasAttachment,
+        hasCompletedAttachment,
+        hasExtendAttachments,
+        hasVoiceNote,
         createdBy: users[task.createdById] ? { id: task.createdById, username: users[task.createdById].username } : null,
         assignedTo: task.assignedToId && users[task.assignedToId] ? { id: task.assignedToId, username: users[task.assignedToId].username } : null,
         assignedToUsers: assignedToIds

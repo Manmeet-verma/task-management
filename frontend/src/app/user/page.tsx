@@ -298,7 +298,7 @@ export default function UserPage() {
                             {task.hasCompletedAttachment && (
                               <button onClick={async () => { if (!task.completedAttachmentUrl) { const full = await api.tasks.getById(task.id); if (full.completedAttachmentUrl) openAttachment(full.completedAttachmentUrl, `${task.name}_completed`); } else { openAttachment(task.completedAttachmentUrl, `${task.name}_completed`); } }} className="text-[10px] text-green-600 dark:text-green-400 underline">Complete File</button>
                             )}
-                            {task.voiceNoteUrl && (
+                            {task.hasVoiceNote && (
                               <button onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)} className="text-[10px] text-purple-600 dark:text-purple-400 underline">Voice</button>
                             )}
                             {task.adminRemarks && (
