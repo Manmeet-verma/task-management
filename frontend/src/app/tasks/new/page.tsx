@@ -103,7 +103,9 @@ export default function NewTaskPage() {
 
   const availableUsers = isUser
     ? users.filter(u => u.role === "ADMIN")
-    : users.filter(u => u.role === "USER");
+    : user?.isMaster
+      ? users.filter(u => u.id !== user.id)
+      : users.filter(u => u.role === "USER");
 
   return (
     <div className="min-h-screen dark:bg-gray-900">

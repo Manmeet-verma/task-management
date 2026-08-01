@@ -11,6 +11,7 @@ import Link from "next/link";
 import { openAttachment } from "@/lib/attachment";
 import VoiceRecorder from "@/components/VoiceRecorder";
 import VoicePlayer from "@/components/VoicePlayer";
+import { downloadExcel, tasksToExcelRows, usersToExcelRows } from "@/lib/excel";
 
 export default function AdminPage() {
   const { user, loading } = useAuth();
@@ -186,7 +187,7 @@ export default function AdminPage() {
 
   const allPendingTasks = tasks.filter((t) => t.status !== "COMPLETED" && t.status !== "LOCKED" && t.status !== "VERIFIED");
   const generalPendingCount = allPendingTasks.filter((t) => !t.reassignReason && t.extendStatus !== "PENDING" && !isOverdue(t)).length;
-  const overdueCount = allPendingTasks.filter((t) => isOverdue(t)).length;
+  const overdueCount = allPendingTasks.filter((t) => isOverdue(t) && !t.reassignReason && t.extendStatus !== "PENDING").length;
   const extensionCount = allPendingTasks.filter((t) => t.extendStatus === "PENDING").length;
   const reassignCount = allPendingTasks.filter((t) => t.reassignReason).length;
   const completedCount = tasks.filter((t) => t.status === "COMPLETED" || t.status === "LOCKED").length;
@@ -391,11 +392,11 @@ export default function AdminPage() {
             <div className="flex gap-2 mb-4 flex-wrap">
                 {[
                   { key: "all" as const, label: "All", count: tasks.length },
-                  { key: "pending" as const, label: "General Pending", count: generalPendingCount },
+                  { key: "pending" as const, label: "All Assigned", count: generalPendingCount },
                   { key: "overdue" as const, label: "Overdue", count: overdueCount },
                   { key: "extension" as const, label: "Extension Requests", count: extensionCount },
                   { key: "reassign" as const, label: "Reassign (Incomplete)", count: reassignCount },
-                  { key: "completed" as const, label: "Completed", count: completedCount },
+                  { key: "completed" as const, label: "Approved & Locked", count: completedCount },
                 ].map((f) => (
                   <button key={f.key} onClick={() => { setQuickFilter(f.key); setPage(1); }} className={`px-3 py-1.5 rounded-full text-xs font-medium ${quickFilter === f.key ? "bg-indigo-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}>
                     {f.label} ({f.count})
@@ -428,6 +429,14 @@ export default function AdminPage() {
                 <option value="">All Assigned By</option>
                 {users.map((u) => <option key={u.id} value={u.id}>{u.username}</option>)}
               </select>
+            </div>
+
+            <div className="flex justify-between items-center mb-2">
+              <p className="text-sm text-gray-500 dark:text-gray-400">{filteredTasks.length} task(s) found</p>
+              <div className="flex gap-2">
+                <button onClick={() => downloadExcel(tasksToExcelRows(filteredTasks), "admin_tasks")} className="bg-green-600 text-white px-3 py-1.5 rounded-md hover:bg-green-700 text-xs font-medium">Download Excel</button>
+                {tab === "users" && <button onClick={() => downloadExcel(usersToExcelRows(users), "admin_users")} className="bg-green-600 text-white px-3 py-1.5 rounded-md hover:bg-green-700 text-xs font-medium">Download Users Excel</button>}
+              </div>
             </div>
 
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">
@@ -465,7 +474,7 @@ export default function AdminPage() {
                               <Link href={`/admin/tasks/${task.id}/edit`} className="text-xs text-indigo-600 hover:underline px-1">Edit</Link>
                             )}
                             {task.status === "COMPLETED" && !task.locked && canManage && (
-                              <button onClick={() => handleApproveComplete(task.id)} className="text-xs text-green-600 hover:underline px-1">Accept Complete</button>
+                              <button onClick={() => handleApproveComplete(task.id)} className="text-xs text-green-600 hover:underline px-1">Accept & Approve</button>
                             )}
                             {task.extendStatus === "PENDING" && canManage && (
                               <>
@@ -485,7 +494,7 @@ export default function AdminPage() {
                             {canManage && (
                               <button onClick={() => handleDeleteTask(task.id)} className="text-xs text-red-600 hover:underline px-1">Delete</button>
                             )}
-                            {(task.extendReason || task.lastExtReason || task.completedRemarks || task.reassignReason || task.extRejectReason || task.pendingReason || task.rejectReason || task.adminRemarks || task.voiceNoteUrl || (task.history && task.history.length > 0)) && (
+                            {(task.extendReason || task.lastExtReason || task.completedRemarks || task.reassignReason || task.extRejectReason || task.pendingReason || task.rejectReason || task.adminRemarks || task.voiceNoteUrl || task.attachmentUrl || task.completedAttachmentUrl || task.completedAttachments?.length || task.extendAttachments?.length || (task.history && task.history.length > 0)) && (
                               <button onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)} className="text-xs text-blue-600 hover:underline px-1">
                                 {expandedTaskId === task.id ? "Hide" : "Details"}
                               </button>

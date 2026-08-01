@@ -223,8 +223,8 @@ export default function TaskDetailPage() {
 
         {task.locked && (
           <div className="bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300">Task Completed(locked)</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">This task has been approved by admin. No further actions allowed.</p>
+            <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300">Task Approved & Locked</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">This task has been accepted and approved by admin. No further actions allowed.</p>
           </div>
         )}
 
@@ -248,8 +248,8 @@ export default function TaskDetailPage() {
 
         {task.status === "COMPLETED" && !task.locked && (
           <div className="bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800 p-6 mb-6">
-            <h2 className="text-lg font-semibold text-green-800 dark:text-green-300">Completed</h2>
-            <p className="text-sm text-green-700 dark:text-green-400">Waiting for admin to verify this task.</p>
+            <h2 className="text-lg font-semibold text-green-800 dark:text-green-300">Awaiting Approval</h2>
+            <p className="text-sm text-green-700 dark:text-green-400">Waiting for admin to accept and approve this task.</p>
             {task.completedRemarks && (
               <div className="mt-3 bg-white dark:bg-gray-800 border border-green-200 dark:border-green-800 rounded-md p-3">
                 <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Your Remarks:</p>
@@ -313,9 +313,9 @@ export default function TaskDetailPage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
             <h2 className="text-lg font-semibold mb-4 dark:text-white">Take Action</h2>
             <div className="grid grid-cols-2 gap-4">
-              <button onClick={() => setShowCompleteForm(true)} className="bg-green-600 text-white px-4 py-3 rounded-md hover:bg-green-700 font-medium text-sm">
-                Complete
-              </button>
+                <button onClick={() => setShowCompleteForm(true)} className="bg-green-600 text-white px-4 py-3 rounded-md hover:bg-green-700 font-medium text-sm">
+                  Accept & Approve
+                </button>
               <button onClick={() => setShowExtendForm(true)} className="bg-orange-500 text-white px-4 py-3 rounded-md hover:bg-orange-600 font-medium text-sm">
                 Extend Date
               </button>
@@ -329,7 +329,7 @@ export default function TaskDetailPage() {
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">You created this task. Manage it below.</p>
             <div className="flex flex-wrap gap-2">
               {task.status === "COMPLETED" && !task.locked && (
-                <button onClick={handleApproveComplete} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm font-medium">Accept Complete</button>
+                <button onClick={handleApproveComplete} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm font-medium">Accept & Approve</button>
               )}
               {task.extendStatus === "PENDING" && (
                 <>
@@ -370,7 +370,7 @@ export default function TaskDetailPage() {
         {showCompleteForm && (
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-green-200 dark:border-green-800 p-6 mb-6">
             <form onSubmit={handleComplete} className="space-y-4">
-              <h2 className="text-lg font-semibold dark:text-white">Complete Task</h2>
+              <h2 className="text-lg font-semibold dark:text-white">Accept & Approve Task</h2>
               <p className="text-sm text-gray-600 dark:text-gray-400">Please provide remarks and optionally attach any file (PDF, images, Excel, Word, etc.).</p>
               <textarea value={completeRemarks} onChange={(e) => setCompleteRemarks(e.target.value)} rows={4} className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Describe what you did to complete this task..." required />
 
@@ -418,7 +418,7 @@ export default function TaskDetailPage() {
               </div>
 
               <div className="flex gap-2">
-                <button type="submit" disabled={completing} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-50">{completing ? "Completing..." : "Submit & Complete"}</button>
+                <button type="submit" disabled={completing} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-50">{completing ? "Submitting..." : "Submit & Approve"}</button>
                 <button type="button" onClick={() => { setShowCompleteForm(false); setCompleteRemarks(""); setCompleteFiles([]); setCompleteFilePreviews([]); }} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">Cancel</button>
               </div>
             </form>

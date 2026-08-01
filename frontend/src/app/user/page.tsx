@@ -10,6 +10,7 @@ import Pagination from "@/components/Pagination";
 import Link from "next/link";
 import { openAttachment } from "@/lib/attachment";
 import VoicePlayer from "@/components/VoicePlayer";
+import { downloadExcel, tasksToExcelRows } from "@/lib/excel";
 
 export default function UserPage() {
   const { user, loading, logout } = useAuth();
@@ -195,11 +196,11 @@ export default function UserPage() {
                 <p className="text-2xl font-bold dark:text-white">{myTasks.length}</p>
               </button>
               <button onClick={() => { setCardFilter("pending"); setPage(1); }} className={`border rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer ${cardFilter === "pending" ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"}`}>
-                <p className="text-sm text-gray-500 dark:text-gray-400">General Pending</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">All Assigned</p>
                 <p className="text-2xl font-bold text-blue-600">{pendingTasks.length}</p>
               </button>
               <button onClick={() => { setCardFilter("completed"); setPage(1); }} className={`border rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer ${cardFilter === "completed" ? "bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"}`}>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Completed</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Approved & Locked</p>
                 <p className="text-2xl font-bold text-green-600">{completedTasks.length}</p>
               </button>
               <button onClick={() => { setCardFilter("pendingReview"); setPage(1); }} className={`border rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer ${cardFilter === "pendingReview" ? "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"}`}>
@@ -223,8 +224,8 @@ export default function UserPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold dark:text-white">
                 {cardFilter === "all" && "All Tasks"}
-                {cardFilter === "pending" && "Pending Tasks"}
-                {cardFilter === "completed" && "Completed Tasks"}
+                {cardFilter === "pending" && "All Assigned Tasks"}
+                {cardFilter === "completed" && "Approved & Locked Tasks"}
                 {cardFilter === "pendingReview" && "Pending Review Tasks"}
                 {cardFilter === "overdue" && "Overdue Tasks"}
                 {cardFilter === "reassigned" && "Reassign (Incomplete) Tasks"}
@@ -241,6 +242,11 @@ export default function UserPage() {
           <p className="text-gray-500 dark:text-gray-400 text-center py-8">No tasks found.</p>
         ) : (
           <>
+            <div className="flex justify-between items-center mb-2">
+              <p className="text-sm text-gray-500 dark:text-gray-400">{filteredTasks.length} task(s) shown</p>
+              <button onClick={() => downloadExcel(tasksToExcelRows(filteredTasks), "my_tasks")} className="bg-green-600 text-white px-3 py-1.5 rounded-md hover:bg-green-700 text-xs font-medium">Download Excel</button>
+            </div>
+
             <div className="overflow-x-auto">
               <table className="w-full text-sm border-collapse">
                 <thead>

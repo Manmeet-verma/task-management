@@ -11,6 +11,7 @@ import Link from "next/link";
 import { openAttachment } from "@/lib/attachment";
 import VoiceRecorder from "@/components/VoiceRecorder";
 import VoicePlayer from "@/components/VoicePlayer";
+import { downloadExcel, tasksToExcelRows, usersToExcelRows } from "@/lib/excel";
 
 interface SystemStats {
   totalTasks: number;
@@ -195,12 +196,9 @@ export default function SuperAdminPage() {
   const completedTasks = tasks.filter((t) => t.status === "COMPLETED" && !t.locked);
   const lockedTasks = tasks.filter((t) => t.status === "LOCKED" || t.locked);
   const reassignedTasks = tasks.filter((t) => t.reassignReason);
-  const pendingTasks = tasks.filter((t) => {
-    if (t.status === "COMPLETED" || t.status === "LOCKED" || t.status === "VERIFIED") return false;
-    return true;
-  });
+  const pendingTasks = tasks.filter((t) => t.status !== "COMPLETED" && t.status !== "LOCKED" && t.status !== "VERIFIED");
   const generalPendingCount = pendingTasks.filter((t) => !t.reassignReason && t.extendStatus !== "PENDING" && !isOverdue(t)).length;
-  const overdueCount = pendingTasks.filter((t) => isOverdue(t)).length;
+  const overdueCount = pendingTasks.filter((t) => isOverdue(t) && !t.reassignReason && t.extendStatus !== "PENDING").length;
   const extensionCount = pendingTasks.filter((t) => t.extendStatus === "PENDING").length;
   const reassignCount = pendingTasks.filter((t) => t.reassignReason).length;
 
@@ -500,7 +498,7 @@ export default function SuperAdminPage() {
               <div className="flex gap-2 mb-4 flex-wrap">
                 {[
                   { key: "all" as const, label: "All Pending", count: pendingTasks.length },
-                  { key: "general" as const, label: "General Pending", count: generalPendingCount },
+                  { key: "general" as const, label: "All Assigned", count: generalPendingCount },
                   { key: "overdue" as const, label: "Overdue", count: overdueCount },
                   { key: "extension" as const, label: "Extension Requests", count: extensionCount },
                   { key: "reassign" as const, label: "Reassign (Incomplete)", count: reassignCount },
@@ -539,6 +537,14 @@ export default function SuperAdminPage() {
               </select>
             </div>
 
+            <div className="flex justify-between items-center mb-2">
+              <p className="text-sm text-gray-500 dark:text-gray-400">{filteredTasks.length} task(s) found</p>
+              <div className="flex gap-2">
+                <button onClick={() => downloadExcel(tasksToExcelRows(filteredTasks), "superadmin_tasks")} className="bg-green-600 text-white px-3 py-1.5 rounded-md hover:bg-green-700 text-xs font-medium">Download Excel</button>
+                {(tab === "users" || tab === "admins") && <button onClick={() => downloadExcel(usersToExcelRows(tab === "admins" ? allAdmins : allRegularUsers), `superadmin_${tab}`)} className="bg-green-600 text-white px-3 py-1.5 rounded-md hover:bg-green-700 text-xs font-medium">Download Users Excel</button>}
+              </div>
+            </div>
+
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -569,7 +575,7 @@ export default function SuperAdminPage() {
                               <Link href={`/admin/tasks/${task.id}/edit`} className="text-xs text-indigo-600 hover:underline px-1">Edit</Link>
                             )}
                             {task.status === "COMPLETED" && !task.locked && (
-                              <button onClick={() => handleApproveComplete(task.id)} className="text-xs text-green-600 hover:underline px-1">Accept Complete</button>
+                              <button onClick={() => handleApproveComplete(task.id)} className="text-xs text-green-600 hover:underline px-1">Accept & Approve</button>
                             )}
                             {task.extendStatus === "PENDING" && (
                               <>
@@ -587,7 +593,7 @@ export default function SuperAdminPage() {
                               <button onClick={() => { setExpandedTaskId(expandedTaskId === task.id ? null : task.id); }} className="text-xs text-purple-600 hover:underline px-1">Voice Note</button>
                             )}
                             <button onClick={() => handleDeleteTask(task.id)} className="text-xs text-red-600 hover:underline px-1">Delete</button>
-                            {(task.extendReason || task.lastExtReason || task.completedRemarks || task.reassignReason || task.extRejectReason || task.pendingReason || task.rejectReason || task.adminRemarks || task.voiceNoteUrl || (task.history && task.history.length > 0)) && (
+                            {(task.extendReason || task.lastExtReason || task.completedRemarks || task.reassignReason || task.extRejectReason || task.pendingReason || task.rejectReason || task.adminRemarks || task.voiceNoteUrl || task.attachmentUrl || task.completedAttachmentUrl || task.completedAttachments?.length || task.extendAttachments?.length || (task.history && task.history.length > 0)) && (
                               <button onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)} className="text-xs text-blue-600 hover:underline px-1">
                                 {expandedTaskId === task.id ? "Hide" : "Details"}
                               </button>
