@@ -44,7 +44,7 @@ export default function SuperAdminPage() {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
   const [tab, setTab] = useState<"stats" | "all" | "pending" | "reassigned" | "users" | "admins" | "categories" | "sites">("stats");
-  const [pendingFilter, setPendingFilter] = useState<"all" | "general" | "overdue" | "extension" | "reassign" | "awaitingApproval">("all");
+  const [pendingFilter, setPendingFilter] = useState<"general" | "extend" | "overdue" | "awaitingApproval" | "reassign">("general");
   const [reassigningId, setReassigningId] = useState<string | null>(null);
   const [reassignUserId, setReassignUserId] = useState("");
   const [reassignReason, setReassignReason] = useState("");
@@ -261,7 +261,7 @@ export default function SuperAdminPage() {
       } else if (pendingFilter === "overdue") {
         if (t.status === "COMPLETED") return false;
         if (!isOverdue(t)) return false;
-      } else if (pendingFilter === "extension") {
+      } else if (pendingFilter === "extend") {
         if (t.status === "COMPLETED") return false;
         if (t.extendStatus !== "PENDING") return false;
       } else if (pendingFilter === "reassign") {
@@ -335,7 +335,7 @@ export default function SuperAdminPage() {
             { key: "categories" as const, label: "Categories", count: categories.length },
             { key: "sites" as const, label: "Sites", count: sites.length },
           ].map((t) => (
-            <button key={t.key} onClick={() => { setTab(t.key); setPage(1); setFilterStatus(""); setPendingFilter("all"); }} className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${tab === t.key ? "border-amber-500 text-amber-600 dark:text-amber-400" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"}`}>
+            <button key={t.key} onClick={() => { setTab(t.key); setPage(1); setFilterStatus(""); setPendingFilter("general"); }} className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${tab === t.key ? "border-amber-500 text-amber-600 dark:text-amber-400" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"}`}>
               {t.label} {t.count !== undefined ? `(${t.count})` : ""}
             </button>
           ))}
@@ -428,7 +428,7 @@ export default function SuperAdminPage() {
                 <p className="text-sm text-gray-500 dark:text-gray-400">Admins</p>
                 <p className="text-2xl font-bold text-indigo-600">{stats?.totalAdmins || 0}</p>
               </button>
-              <button onClick={() => { setTab("pending"); setPendingFilter("extension"); setPage(1); }} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer">
+              <button onClick={() => { setTab("pending"); setPendingFilter("extend"); setPage(1); }} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer">
                 <p className="text-sm text-gray-500 dark:text-gray-400">Extension Requests</p>
                 <p className="text-2xl font-bold text-orange-600">{stats?.extensionRequests || 0}</p>
               </button>
@@ -552,12 +552,11 @@ export default function SuperAdminPage() {
             {(tab === "all" || tab === "pending" || tab === "reassigned") && tab === "pending" && (
               <div className="flex gap-2 mb-4 flex-wrap">
                 {[
-                  { key: "all" as const, label: "All Pending", count: pendingTasks.length },
-                  { key: "general" as const, label: "All Assigned", count: generalPendingCount },
+                  { key: "general" as const, label: "General Pending", count: generalPendingCount },
+                  { key: "extend" as const, label: "Extend Date", count: extensionCount },
                   { key: "overdue" as const, label: "Overdue", count: overdueCount },
-                  { key: "extension" as const, label: "Extension Requests", count: extensionCount },
-                  { key: "reassign" as const, label: "Reassign (Incomplete)", count: reassignCount },
                   { key: "awaitingApproval" as const, label: "Awaiting Approval", count: awaitingApprovalCount },
+                  { key: "reassign" as const, label: "Reassign (Incomplete)", count: reassignCount },
                 ].map((f) => (
                   <button key={f.key} onClick={() => { setPendingFilter(f.key); setPage(1); }} className={`px-3 py-1.5 rounded-full text-xs font-medium ${pendingFilter === f.key ? "bg-amber-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}>
                     {f.label} ({f.count})

@@ -31,7 +31,7 @@ export default function AdminPage() {
   const [perPage, setPerPage] = useState(10);
   const [tab, setTab] = useState<"all" | "pending" | "users" | "categories" | "sites">("all");
   const [quickFilter, setQuickFilter] = useState<"all" | "pending" | "overdue" | "extension" | "reassign" | "completed">("all");
-  const [pendingFilter, setPendingFilter] = useState<"all" | "general" | "overdue" | "extension" | "reassign" | "awaitingApproval">("all");
+  const [pendingFilter, setPendingFilter] = useState<"general" | "extend" | "overdue" | "awaitingApproval" | "reassign">("general");
   const [reassigningId, setReassigningId] = useState<string | null>(null);
   const [reassignUserId, setReassignUserId] = useState("");
   const [reassignReason, setReassignReason] = useState("");
@@ -252,7 +252,7 @@ export default function AdminPage() {
       } else if (pendingFilter === "overdue") {
         if (t.status === "COMPLETED") return false;
         if (!isOverdue(t)) return false;
-      } else if (pendingFilter === "extension") {
+      } else if (pendingFilter === "extend") {
         if (t.status === "COMPLETED") return false;
         if (t.extendStatus !== "PENDING") return false;
       } else if (pendingFilter === "reassign") {
@@ -336,7 +336,7 @@ export default function AdminPage() {
             { key: "categories" as const, label: "Categories", count: categories.length },
             { key: "sites" as const, label: "Sites", count: sites.length },
           ].map((t) => (
-            <button key={t.key} onClick={() => { setTab(t.key); setPage(1); setFilterStatus(""); setQuickFilter("all"); setPendingFilter("all"); }} className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${tab === t.key ? "border-indigo-600 text-indigo-600 dark:text-indigo-400" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"}`}>
+            <button key={t.key} onClick={() => { setTab(t.key); setPage(1); setFilterStatus(""); setQuickFilter("all"); setPendingFilter("general"); }} className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${tab === t.key ? "border-indigo-600 text-indigo-600 dark:text-indigo-400" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"}`}>
               {t.label} ({t.count})
             </button>
           ))}
@@ -459,12 +459,11 @@ export default function AdminPage() {
             {tab === "pending" && (
               <div className="flex gap-2 mb-4 flex-wrap">
                 {[
-                  { key: "all" as const, label: "All Pending", count: allPendingTasks.length },
-                  { key: "general" as const, label: "All Assigned", count: generalPendingCount },
+                  { key: "general" as const, label: "General Pending", count: generalPendingCount },
+                  { key: "extend" as const, label: "Extend Date", count: extensionCount },
                   { key: "overdue" as const, label: "Overdue", count: overdueCount },
-                  { key: "extension" as const, label: "Extension Requests", count: extensionCount },
-                  { key: "reassign" as const, label: "Reassign (Incomplete)", count: reassignCount },
                   { key: "awaitingApproval" as const, label: "Awaiting Approval", count: awaitingApprovalCount },
+                  { key: "reassign" as const, label: "Reassign (Incomplete)", count: reassignCount },
                 ].map((f) => (
                   <button key={f.key} onClick={() => { setPendingFilter(f.key); setPage(1); }} className={`px-3 py-1.5 rounded-full text-xs font-medium ${pendingFilter === f.key ? "bg-indigo-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}>
                     {f.label} ({f.count})
