@@ -29,7 +29,7 @@ export default function AdminPage() {
   const [filterAssignedBy, setFilterAssignedBy] = useState("");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [tab, setTab] = useState<"all" | "pending" | "users" | "categories" | "sites">("all");
+  const [tab, setTab] = useState<"all" | "pending" | "approved" | "users" | "categories" | "sites">("all");
   const [quickFilter, setQuickFilter] = useState<"all" | "pending" | "overdue" | "extension" | "reassign" | "completed">("all");
   const [pendingFilter, setPendingFilter] = useState<"general" | "extend" | "overdue" | "awaitingApproval" | "reassign">("general");
   const [reassigningId, setReassigningId] = useState<string | null>(null);
@@ -235,6 +235,7 @@ export default function AdminPage() {
   const reassignCount = allPendingTasks.filter((t) => t.status !== "COMPLETED" && t.reassignReason).length;
   const awaitingApprovalCount = tasks.filter((t) => t.status === "COMPLETED" && !t.locked).length;
   const completedCount = tasks.filter((t) => t.status === "COMPLETED" || t.status === "LOCKED").length;
+  const approvedTasks = tasks.filter((t) => t.status === "LOCKED");
 
   const filteredTasks = tasks.filter((t) => {
     if (topAction === "site" && selectedSite) {
@@ -276,6 +277,8 @@ export default function AdminPage() {
       } else if (quickFilter === "completed") {
         if (t.status !== "COMPLETED" && t.status !== "LOCKED") return false;
       }
+    } else if (tab === "approved") {
+      if (t.status !== "LOCKED") return false;
     }
     const matchStatus = !filterStatus || t.status === filterStatus;
     const matchCategory = !filterCategory || t.category === filterCategory;
@@ -332,6 +335,7 @@ export default function AdminPage() {
           {[
             { key: "all" as const, label: "All Tasks", count: tasks.length },
             { key: "pending" as const, label: "Pending", count: allPendingTasks.length },
+            { key: "approved" as const, label: "Approved Tasks", count: approvedTasks.length },
             { key: "users" as const, label: "Users", count: users.length },
             { key: "categories" as const, label: "Categories", count: categories.length },
             { key: "sites" as const, label: "Sites", count: sites.length },

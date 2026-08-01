@@ -43,7 +43,7 @@ export default function SuperAdminPage() {
   const [filterAssignedBy, setFilterAssignedBy] = useState("");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [tab, setTab] = useState<"stats" | "all" | "pending" | "reassigned" | "users" | "admins" | "categories" | "sites">("stats");
+  const [tab, setTab] = useState<"stats" | "all" | "pending" | "approved" | "reassigned" | "users" | "admins" | "categories" | "sites">("stats");
   const [pendingFilter, setPendingFilter] = useState<"general" | "extend" | "overdue" | "awaitingApproval" | "reassign">("general");
   const [reassigningId, setReassigningId] = useState<string | null>(null);
   const [reassignUserId, setReassignUserId] = useState("");
@@ -268,6 +268,8 @@ export default function SuperAdminPage() {
         if (t.status === "COMPLETED") return false;
         if (!t.reassignReason) return false;
       }
+    } else if (tab === "approved") {
+      if (t.status !== "LOCKED") return false;
     }
     if (tab === "reassigned") { if (!t.reassignReason) return false; }
     const matchStatus = !filterStatus || t.status === filterStatus;
@@ -329,6 +331,7 @@ export default function SuperAdminPage() {
             { key: "stats" as const, label: "Overview" },
             { key: "all" as const, label: "All Tasks", count: tasks.length },
             { key: "pending" as const, label: "Pending", count: pendingTasks.length },
+            { key: "approved" as const, label: "Approved Tasks", count: lockedTasks.length },
             { key: "reassigned" as const, label: "Reassigned", count: reassignedTasks.length },
             { key: "users" as const, label: "Users", count: users.length },
             { key: "admins" as const, label: "Admins", count: allAdmins.length },
