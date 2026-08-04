@@ -32,6 +32,7 @@ export async function POST(
     if (contentType.includes("multipart/form-data")) {
       const formData = await request.formData();
       remarks = (formData.get("remarks") as string) || "";
+      const keepAttachments = formData.get("keepAttachments") as string | null;
       const files = formData.getAll("files") as File[];
       for (const file of files) {
         if (file && file.size > 0) {
@@ -40,6 +41,13 @@ export async function POST(
           allAttachments.push(`data:${file.type};base64,${base64}`);
           if (!firstFileType) firstFileType = file.type;
         }
+      }
+      if (keepAttachments !== null) {
+        const kept = keepAttachments ? JSON.parse(keepAttachments) : [];
+        const merged = [...kept, ...allAttachments];
+        allAttachments.length = 0;
+        allAttachments.push(...merged);
+        if (allAttachments.length > 0 && !firstFileType) firstFileType = "unknown";
       }
     } else {
       const body = await request.json();
@@ -56,7 +64,7 @@ export async function POST(
     const task = snapshot.val();
     if (task.assignedToId !== user.id && !(task.assignedToIds || []).includes(user.id)) return NextResponse.json({ error: "Not your task" }, { status: 403 });
     if (task.locked) return NextResponse.json({ error: "Task is locked" }, { status: 400 });
-    if (task.status !== "IN_PROGRESS" && task.status !== "ASSIGNED")
+    if (task.status !== "IN_PROGRESS" && task.status !== "ASSIGNED" && task.status !== "COMPLETED")
       return NextResponse.json({ error: "Task cannot be completed" }, { status: 400 });
 
     const adminSnapshot = await get(ref(db, `users/${task.createdById}`));

@@ -166,6 +166,7 @@ export default function TaskDetailPage() {
   const editCameraInputRef = useRef<HTMLInputElement>(null);
   const [editRemarks, setEditRemarks] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
+  const [keptAttachments, setKeptAttachments] = useState<string[]>([]);
 
   const handleEditFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -189,7 +190,8 @@ export default function TaskDetailPage() {
     setSavingEdit(true);
     try {
       const formData = new FormData();
-      if (editRemarks.trim()) formData.append("remarks", editRemarks.trim());
+      formData.append("remarks", editRemarks.trim() || task?.completedRemarks || "Completed");
+      formData.append("keepAttachments", JSON.stringify(keptAttachments));
       for (const file of editFiles) {
         formData.append("files", file);
       }
@@ -205,6 +207,7 @@ export default function TaskDetailPage() {
       setEditFiles([]);
       setEditFilePreviews([]);
       setEditRemarks("");
+      setKeptAttachments([]);
       loadTask();
     } catch (err) { console.error(err); }
     finally { setSavingEdit(false); }
@@ -268,7 +271,14 @@ export default function TaskDetailPage() {
                 <h2 className="text-lg font-semibold text-blue-800 dark:text-blue-300">Edit Completion</h2>
                 <p className="text-sm text-blue-700 dark:text-blue-400">You can update your completion remarks and attachments before admin approval.</p>
               </div>
-              <button onClick={() => setEditingAttachments(!editingAttachments)} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm font-medium">
+              <button onClick={() => {
+                if (!editingAttachments && task) {
+                  const existing = task.completedAttachments || (task.completedAttachmentUrl ? [task.completedAttachmentUrl] : []);
+                  setKeptAttachments([...existing]);
+                  setEditRemarks(task.completedRemarks || "");
+                }
+                setEditingAttachments(!editingAttachments);
+              }} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm font-medium">
                 {editingAttachments ? "Cancel Edit" : "Edit Completion"}
               </button>
             </div>
@@ -279,7 +289,28 @@ export default function TaskDetailPage() {
                   <textarea value={editRemarks} onChange={(e) => setEditRemarks(e.target.value)} rows={3} className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Update your completion remarks..." />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Replace/Add Files</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Existing Attachments ({keptAttachments.length})</label>
+                  {keptAttachments.length > 0 ? (
+                    <div className="grid grid-cols-3 gap-2">
+                      {keptAttachments.map((att, i) => (
+                        <div key={i} className="relative">
+                          {att.startsWith("data:image") ? (
+                            <img src={att} alt={`File ${i + 1}`} className="w-full h-24 object-cover rounded border border-gray-200 dark:border-gray-700" />
+                          ) : (
+                            <div className="w-full h-24 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-700">
+                              <p className="text-xs text-gray-500 dark:text-gray-400 text-center px-1">File {i + 1}</p>
+                            </div>
+                          )}
+                          <button type="button" onClick={() => setKeptAttachments(prev => prev.filter((_, idx) => idx !== i))} className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600">x</button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-400">No existing attachments</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Add New Files</label>
                   <div className="flex gap-2 flex-wrap">
                     <input ref={editFileInputRef} type="file" multiple onChange={handleEditFileSelect} className="hidden" />
                     <button type="button" onClick={() => editFileInputRef.current?.click()} className="bg-blue-500 text-white px-3 py-2 rounded-md hover:bg-blue-600 text-sm">+ Add File</button>
@@ -305,7 +336,7 @@ export default function TaskDetailPage() {
                 </div>
                 <div className="flex gap-2">
                   <button onClick={handleSaveEdit} disabled={savingEdit} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm">{savingEdit ? "Saving..." : "Save Changes"}</button>
-                  <button onClick={() => { setEditingAttachments(false); setEditFiles([]); setEditFilePreviews([]); setEditRemarks(""); }} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 text-sm">Cancel</button>
+                  <button onClick={() => { setEditingAttachments(false); setEditFiles([]); setEditFilePreviews([]); setEditRemarks(""); setKeptAttachments([]); }} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 text-sm">Cancel</button>
                 </div>
               </div>
             )}
