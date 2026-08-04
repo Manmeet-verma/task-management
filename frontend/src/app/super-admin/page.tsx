@@ -645,8 +645,8 @@ export default function SuperAdminPage() {
                     <th className="px-3 py-2 border dark:border-gray-700 font-medium">Assigned To</th>
                     <th className="px-3 py-2 border dark:border-gray-700 font-medium">Created By</th>
                     <th className="px-3 py-2 border dark:border-gray-700 font-medium">Deadline</th>
-                    <th className="px-3 py-2 border dark:border-gray-700 font-medium">Status</th>
-                    <th className="px-3 py-2 border dark:border-gray-700 font-medium">Actions</th>
+                    {tab !== "requests" && <th className="px-3 py-2 border dark:border-gray-700 font-medium">Status</th>}
+                    {tab !== "requests" && <th className="px-3 py-2 border dark:border-gray-700 font-medium">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -670,11 +670,14 @@ export default function SuperAdminPage() {
                           <div>{new Date(task.deadline).toLocaleDateString()}</div>
                           {task.extensionCount > 0 && <div className="text-xs text-red-600 dark:text-red-400">Ext: {task.extensionCount}</div>}
                         </td>
+                        {tab !== "requests" && (
                         <td className="px-3 py-2 border dark:border-gray-700">
                           <StatusBadge status={task.status} />
                           {task.extendStatus === "PENDING" && <span className="block text-[10px] text-orange-600 dark:text-orange-400 mt-0.5">Ext Pending</span>}
                           {task.reassignReason && <span className="block text-[10px] text-orange-600 dark:text-orange-400 mt-0.5">Reassigned</span>}
                         </td>
+                        )}
+                        {tab !== "requests" && (
                         <td className="px-3 py-2 border dark:border-gray-700">
                           <div className="flex gap-1 flex-wrap items-center">
                             {task.hasAttachment && (
@@ -791,10 +794,11 @@ export default function SuperAdminPage() {
                             </div>
                           )}
                         </td>
+                        )}
                       </tr>
                     );
                   })}
-                  {paginated.length === 0 && <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No tasks found</td></tr>}
+                  {paginated.length === 0 && <tr><td colSpan={tab === "requests" ? 7 : 9} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No tasks found</td></tr>}
                 </tbody>
               </table>
             </div>

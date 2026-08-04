@@ -29,8 +29,8 @@ export default function UserPage() {
   const [selectedSite, setSelectedSite] = useState<string>("");
   const [now, setNow] = useState(new Date());
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
-  const [tab, setTab] = useState<"all" | "pending" | "completed" | "locked" | "requests">("all");
-  const [pendingFilter, setPendingFilter] = useState<"general" | "extend" | "overdue" | "reassign">("general");
+  const [tab, setTab] = useState<"all" | "pending" | "locked" | "requests">("all");
+  const [pendingFilter, setPendingFilter] = useState<"general" | "extend" | "overdue" | "reassign" | "completed">("general");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
 
@@ -124,9 +124,9 @@ export default function UserPage() {
       } else if (pendingFilter === "reassign") {
         if (t.status === "COMPLETED") return false;
         if (!t.reassignReason) return false;
+      } else if (pendingFilter === "completed") {
+        if (t.status !== "COMPLETED" || t.locked) return false;
       }
-    } else if (tab === "completed") {
-      if (t.status !== "COMPLETED" || t.locked) return false;
     } else if (tab === "locked") {
       if (t.status !== "LOCKED") return false;
     }
@@ -203,7 +203,6 @@ export default function UserPage() {
               {[
                 { key: "all" as const, label: "All Tasks", count: myTasks.length },
                 { key: "pending" as const, label: "Pending", count: allPendingTasks.length },
-                { key: "completed" as const, label: "Completed", count: completedTasks.length },
                 { key: "locked" as const, label: "Approved & Locked", count: lockedTasks.length },
                 { key: "requests" as const, label: "Create Request for Admin", count: myRequestsCount },
               ].map((t) => (
@@ -220,6 +219,7 @@ export default function UserPage() {
                   { key: "extend" as const, label: "Extend Date", count: extendDateCount },
                   { key: "overdue" as const, label: "Overdue", count: overdueCount },
                   { key: "reassign" as const, label: "Reassign (Incomplete)", count: reassignCount },
+                  { key: "completed" as const, label: "Completed (Awaiting Approval)", count: completedTasks.length },
                 ].map((f) => (
                   <button key={f.key} onClick={() => { setPendingFilter(f.key); setPage(1); }} className={`px-3 py-1.5 rounded-full text-xs font-medium ${pendingFilter === f.key ? "bg-indigo-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}>
                     {f.label} ({f.count})
@@ -235,7 +235,7 @@ export default function UserPage() {
                 {tab === "pending" && pendingFilter === "extend" && "Extend Date Tasks"}
                 {tab === "pending" && pendingFilter === "overdue" && "Overdue Tasks"}
                 {tab === "pending" && pendingFilter === "reassign" && "Reassign (Incomplete) Tasks"}
-                {tab === "completed" && "Completed (Awaiting Approval)"}
+                {tab === "pending" && pendingFilter === "completed" && "Completed (Awaiting Approval)"}
                 {tab === "locked" && "Approved & Locked Tasks"}
                 {tab === "requests" && "Create Request for Admin"}
                 <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">({filteredTasks.length})</span>
@@ -266,8 +266,8 @@ export default function UserPage() {
                     <th className="px-3 py-2 border dark:border-gray-700 font-medium">Requested By</th>
                     <th className="px-3 py-2 border dark:border-gray-700 font-medium">Request To</th>
                     <th className="px-3 py-2 border dark:border-gray-700 font-medium">Deadline</th>
-                    <th className="px-3 py-2 border dark:border-gray-700 font-medium">Status</th>
-                    <th className="px-3 py-2 border dark:border-gray-700 font-medium">Actions</th>
+                    {tab !== "requests" && <th className="px-3 py-2 border dark:border-gray-700 font-medium">Status</th>}
+                    {tab !== "requests" && <th className="px-3 py-2 border dark:border-gray-700 font-medium">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -297,11 +297,14 @@ export default function UserPage() {
                           {task.userDeadline && <div className="text-xs text-gray-500 dark:text-gray-400">Your: {new Date(task.userDeadline).toLocaleDateString()}</div>}
                           {task.extensionCount > 0 && <div className="text-xs text-red-600 dark:text-red-400">Ext: {task.extensionCount}</div>}
                         </td>
+                        {tab !== "requests" && (
                         <td className="px-3 py-2 border dark:border-gray-700">
                           <StatusBadge status={task.status} />
                           {task.extendStatus === "PENDING" && <span className="block text-[10px] text-orange-600 dark:text-orange-400 mt-0.5">Ext Pending</span>}
                           {task.reassignReason && <span className="block text-[10px] text-orange-600 dark:text-orange-400 mt-0.5">Reassigned</span>}
                         </td>
+                        )}
+                        {tab !== "requests" && (
                         <td className="px-3 py-2 border dark:border-gray-700">
                           <div className="flex gap-1 flex-wrap">
                             {task.hasAttachment && (
@@ -345,6 +348,7 @@ export default function UserPage() {
                             </div>
                           )}
                         </td>
+                        )}
                       </tr>
                     );
                   })}
