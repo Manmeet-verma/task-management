@@ -29,7 +29,7 @@ export default function AdminPage() {
   const [filterAssignedBy, setFilterAssignedBy] = useState("");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [tab, setTab] = useState<"all" | "pending" | "requests" | "users" | "categories" | "sites">("all");
+  const [tab, setTab] = useState<"all" | "pending" | "approved" | "requests" | "users" | "categories" | "sites">("all");
   const [quickFilter, setQuickFilter] = useState<"all" | "pending" | "overdue" | "extension" | "reassign" | "completed">("all");
   const [pendingFilter, setPendingFilter] = useState<"general" | "extend" | "overdue" | "reassign" | "completed">("general");
   const [reassigningId, setReassigningId] = useState<string | null>(null);
@@ -278,6 +278,8 @@ export default function AdminPage() {
       } else if (pendingFilter === "completed") {
         if (t.status !== "COMPLETED" || t.locked) return false;
       }
+    } else if (tab === "approved") {
+      if (t.status !== "LOCKED") return false;
     } else if (tab === "all") {
       if (quickFilter === "pending") {
         if (t.status === "COMPLETED" || t.status === "LOCKED" || t.status === "VERIFIED") return false;
@@ -351,6 +353,7 @@ export default function AdminPage() {
           {[
             { key: "all" as const, label: "All Tasks", count: tasks.length },
             { key: "pending" as const, label: "Pending", count: allPendingTasks.length },
+            { key: "approved" as const, label: "Approved & Locked", count: approvedTasks.length },
             { key: "requests" as const, label: "Requests by Users", count: userRequestsCount },
             { key: "users" as const, label: "Users", count: users.length },
             { key: "categories" as const, label: "Categories", count: categories.length },

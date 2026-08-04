@@ -43,7 +43,7 @@ export default function SuperAdminPage() {
   const [filterAssignedBy, setFilterAssignedBy] = useState("");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [tab, setTab] = useState<"stats" | "all" | "pending" | "requests" | "users" | "admins" | "categories" | "sites">("stats");
+  const [tab, setTab] = useState<"stats" | "all" | "pending" | "approved" | "requests" | "users" | "admins" | "categories" | "sites">("stats");
   const [pendingFilter, setPendingFilter] = useState<"general" | "extend" | "overdue" | "reassign" | "completed">("general");
   const [quickFilter, setQuickFilter] = useState<"all" | "pending" | "overdue" | "extension" | "reassign" | "completed">("all");
   const [reassigningId, setReassigningId] = useState<string | null>(null);
@@ -276,6 +276,8 @@ export default function SuperAdminPage() {
       } else if (pendingFilter === "completed") {
         if (t.status !== "COMPLETED" || t.locked) return false;
       }
+    } else if (tab === "approved") {
+      if (t.status !== "LOCKED") return false;
     } else if (tab === "all") {
       if (quickFilter === "pending") {
         if (t.status === "COMPLETED" || t.status === "LOCKED" || t.status === "VERIFIED") return false;
@@ -353,6 +355,7 @@ export default function SuperAdminPage() {
             { key: "stats" as const, label: "Overview" },
             { key: "all" as const, label: "All Tasks", count: tasks.length },
             { key: "pending" as const, label: "Pending", count: pendingTasks.length },
+            { key: "approved" as const, label: "Approved & Locked", count: lockedTasks.length },
             { key: "requests" as const, label: "Requests by Users", count: userRequestsCount },
             { key: "users" as const, label: "Users", count: users.length },
             { key: "admins" as const, label: "Admins", count: allAdmins.length },
