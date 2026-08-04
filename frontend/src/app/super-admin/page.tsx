@@ -239,7 +239,7 @@ export default function SuperAdminPage() {
   const completedTasks = tasks.filter((t) => t.status === "COMPLETED" && !t.locked);
   const lockedTasks = tasks.filter((t) => t.status === "LOCKED" || t.locked);
   const reassignedTasks = tasks.filter((t) => t.reassignReason);
-  const pendingTasks = tasks.filter((t) => t.status !== "LOCKED" && t.status !== "VERIFIED");
+  const pendingTasks = tasks.filter((t) => t.status !== "LOCKED" && t.status !== "VERIFIED" && !t.locked);
   const generalPendingCount = pendingTasks.filter((t) => t.status !== "COMPLETED" && !t.reassignReason && t.extendStatus !== "PENDING" && !isOverdue(t)).length;
   const overdueCount = pendingTasks.filter((t) => t.status !== "COMPLETED" && isOverdue(t) && !t.reassignReason && t.extendStatus !== "PENDING").length;
   const extensionCount = pendingTasks.filter((t) => t.status !== "COMPLETED" && t.extendStatus === "PENDING").length;
@@ -258,7 +258,7 @@ export default function SuperAdminPage() {
       const creator = users.find(u => u.id === t.createdById);
       if (!creator || creator.role !== "USER") return false;
     } else if (tab === "pending") {
-      if (t.status === "LOCKED" || t.status === "VERIFIED") return false;
+      if (t.status === "LOCKED" || t.status === "VERIFIED" || t.locked) return false;
       if (pendingFilter === "general") {
         if (t.status === "COMPLETED") return false;
         if (t.reassignReason) return false;
@@ -277,7 +277,7 @@ export default function SuperAdminPage() {
         if (t.status !== "COMPLETED" || t.locked) return false;
       }
     } else if (tab === "approved") {
-      if (t.status !== "LOCKED") return false;
+      if (t.status !== "LOCKED" && !t.locked) return false;
     } else if (tab === "all") {
       if (quickFilter === "pending") {
         if (t.status === "COMPLETED" || t.status === "LOCKED" || t.status === "VERIFIED") return false;

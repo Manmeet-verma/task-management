@@ -239,14 +239,14 @@ export default function AdminPage() {
     try { await api.sites.delete(id); loadData(); } catch (err) { console.error(err); }
   };
 
-  const allPendingTasks = tasks.filter((t) => t.status !== "LOCKED" && t.status !== "VERIFIED");
+  const allPendingTasks = tasks.filter((t) => t.status !== "LOCKED" && t.status !== "VERIFIED" && !t.locked);
   const generalPendingCount = allPendingTasks.filter((t) => t.status !== "COMPLETED" && !t.reassignReason && t.extendStatus !== "PENDING" && !isOverdue(t)).length;
   const overdueCount = allPendingTasks.filter((t) => t.status !== "COMPLETED" && isOverdue(t) && !t.reassignReason && t.extendStatus !== "PENDING").length;
   const extensionCount = allPendingTasks.filter((t) => t.status !== "COMPLETED" && t.extendStatus === "PENDING").length;
   const reassignCount = allPendingTasks.filter((t) => t.status !== "COMPLETED" && t.reassignReason).length;
   const awaitingApprovalCount = tasks.filter((t) => t.status === "COMPLETED" && !t.locked).length;
   const completedCount = tasks.filter((t) => t.status === "COMPLETED" || t.status === "LOCKED").length;
-  const approvedTasks = tasks.filter((t) => t.status === "LOCKED");
+  const approvedTasks = tasks.filter((t) => t.status === "LOCKED" || t.locked);
   const userRequestsCount = tasks.filter((t) => {
     const creator = users.find(u => u.id === t.createdById);
     return creator && creator.role === "USER";
@@ -260,7 +260,7 @@ export default function AdminPage() {
       const creator = users.find(u => u.id === t.createdById);
       if (!creator || creator.role !== "USER") return false;
     } else if (tab === "pending") {
-      if (t.status === "LOCKED" || t.status === "VERIFIED") return false;
+      if (t.status === "LOCKED" || t.status === "VERIFIED" || t.locked) return false;
       if (pendingFilter === "general") {
         if (t.status === "COMPLETED") return false;
         if (t.reassignReason) return false;
@@ -279,7 +279,7 @@ export default function AdminPage() {
         if (t.status !== "COMPLETED" || t.locked) return false;
       }
     } else if (tab === "approved") {
-      if (t.status !== "LOCKED") return false;
+      if (t.status !== "LOCKED" && !t.locked) return false;
     } else if (tab === "all") {
       if (quickFilter === "pending") {
         if (t.status === "COMPLETED" || t.status === "LOCKED" || t.status === "VERIFIED") return false;

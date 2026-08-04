@@ -51,7 +51,7 @@ export async function POST(
       performedBy: adminName,
     };
 
-    await update(taskRef, { status: "COMPLETED", locked: true, updatedAt: new Date().toISOString(), history: [...existingHistory, historyEntry] });
+    await update(taskRef, { status: "LOCKED", locked: true, updatedAt: new Date().toISOString(), history: [...existingHistory, historyEntry] });
     if (task.assignedToId) {
       await createNotification(task.assignedToId, `Your completed task "${task.name}" has been approved by ${adminName}.`, "COMPLETED", id);
     }
