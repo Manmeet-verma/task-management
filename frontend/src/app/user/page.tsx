@@ -29,7 +29,7 @@ export default function UserPage() {
   const [selectedSite, setSelectedSite] = useState<string>("");
   const [now, setNow] = useState(new Date());
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
-  const [tab, setTab] = useState<"all" | "pending" | "completed" | "locked">("all");
+  const [tab, setTab] = useState<"all" | "pending" | "completed" | "locked" | "requests">("all");
   const [pendingFilter, setPendingFilter] = useState<"general" | "extend" | "overdue" | "reassign">("general");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
@@ -100,12 +100,15 @@ export default function UserPage() {
   const extendDateCount = allPendingTasks.filter((t) => t.status !== "COMPLETED" && t.extendStatus === "PENDING").length;
   const overdueCount = allPendingTasks.filter((t) => t.status !== "COMPLETED" && isOverdue(t) && !t.reassignReason && t.extendStatus !== "PENDING").length;
   const reassignCount = allPendingTasks.filter((t) => t.status !== "COMPLETED" && t.reassignReason).length;
+  const myRequestsCount = myTasks.filter((t) => t.createdById === user?.id).length;
 
   const filteredTasks = myTasks.filter((t) => {
     if (topAction === "site" && selectedSite) {
       if (t.siteProject !== selectedSite) return false;
     }
-    if (tab === "pending") {
+    if (tab === "requests") {
+      if (t.createdById !== user?.id) return false;
+    } else if (tab === "pending") {
       if (t.status === "LOCKED" || t.status === "VERIFIED") return false;
       if (pendingFilter === "general") {
         if (t.status === "COMPLETED") return false;
@@ -202,6 +205,7 @@ export default function UserPage() {
                 { key: "pending" as const, label: "Pending", count: allPendingTasks.length },
                 { key: "completed" as const, label: "Completed", count: completedTasks.length },
                 { key: "locked" as const, label: "Approved & Locked", count: lockedTasks.length },
+                { key: "requests" as const, label: "Create Request for Admin", count: myRequestsCount },
               ].map((t) => (
                 <button key={t.key} onClick={() => { setTab(t.key); setPage(1); setPendingFilter("general"); }} className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${tab === t.key ? "border-indigo-600 text-indigo-600 dark:text-indigo-400" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"}`}>
                   {t.label} ({t.count})
@@ -233,6 +237,7 @@ export default function UserPage() {
                 {tab === "pending" && pendingFilter === "reassign" && "Reassign (Incomplete) Tasks"}
                 {tab === "completed" && "Completed (Awaiting Approval)"}
                 {tab === "locked" && "Approved & Locked Tasks"}
+                {tab === "requests" && "Create Request for Admin"}
                 <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">({filteredTasks.length})</span>
               </h2>
             </div>
@@ -259,6 +264,7 @@ export default function UserPage() {
                     <th className="px-3 py-2 border dark:border-gray-700 font-medium">Category</th>
                     <th className="px-3 py-2 border dark:border-gray-700 font-medium">Site</th>
                     <th className="px-3 py-2 border dark:border-gray-700 font-medium">Requested By</th>
+                    <th className="px-3 py-2 border dark:border-gray-700 font-medium">Request To</th>
                     <th className="px-3 py-2 border dark:border-gray-700 font-medium">Deadline</th>
                     <th className="px-3 py-2 border dark:border-gray-700 font-medium">Status</th>
                     <th className="px-3 py-2 border dark:border-gray-700 font-medium">Actions</th>
@@ -282,6 +288,9 @@ export default function UserPage() {
                         <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-300">{task.siteProject}</td>
                         <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-300">
                           {task.createdById === user?.id ? "You" : (task.assignedByName || task.createdBy?.username || "Unknown")}
+                        </td>
+                        <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-300">
+                          {task.createdById === user?.id ? (task.assignedTo?.username || "Admin") : "-"}
                         </td>
                         <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-300">
                           <div>{new Date(task.deadline).toLocaleDateString()}</div>

@@ -29,7 +29,7 @@ export default function AdminPage() {
   const [filterAssignedBy, setFilterAssignedBy] = useState("");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [tab, setTab] = useState<"all" | "pending" | "completed" | "approved" | "users" | "categories" | "sites">("all");
+  const [tab, setTab] = useState<"all" | "pending" | "completed" | "approved" | "requests" | "users" | "categories" | "sites">("all");
   const [quickFilter, setQuickFilter] = useState<"all" | "pending" | "overdue" | "extension" | "reassign" | "completed">("all");
   const [pendingFilter, setPendingFilter] = useState<"general" | "extend" | "overdue" | "reassign">("general");
   const [reassigningId, setReassigningId] = useState<string | null>(null);
@@ -247,12 +247,19 @@ export default function AdminPage() {
   const awaitingApprovalCount = tasks.filter((t) => t.status === "COMPLETED" && !t.locked).length;
   const completedCount = tasks.filter((t) => t.status === "COMPLETED" || t.status === "LOCKED").length;
   const approvedTasks = tasks.filter((t) => t.status === "LOCKED");
+  const userRequestsCount = tasks.filter((t) => {
+    const creator = users.find(u => u.id === t.createdById);
+    return creator && creator.role === "USER";
+  }).length;
 
   const filteredTasks = tasks.filter((t) => {
     if (topAction === "site" && selectedSite) {
       if (t.siteProject !== selectedSite) return false;
     }
-    if (tab === "pending") {
+    if (tab === "requests") {
+      const creator = users.find(u => u.id === t.createdById);
+      if (!creator || creator.role !== "USER") return false;
+    } else if (tab === "pending") {
       if (t.status === "LOCKED" || t.status === "VERIFIED") return false;
       if (pendingFilter === "general") {
         if (t.status === "COMPLETED") return false;
@@ -350,6 +357,7 @@ export default function AdminPage() {
             { key: "pending" as const, label: "Pending", count: allPendingTasks.length },
             { key: "completed" as const, label: "Completed", count: awaitingApprovalCount },
             { key: "approved" as const, label: "Approved Tasks", count: approvedTasks.length },
+            { key: "requests" as const, label: "Requests by Users", count: userRequestsCount },
             { key: "users" as const, label: "Users", count: users.length },
             { key: "categories" as const, label: "Categories", count: categories.length },
             { key: "sites" as const, label: "Sites", count: sites.length },
