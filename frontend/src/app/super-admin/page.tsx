@@ -43,8 +43,8 @@ export default function SuperAdminPage() {
   const [filterAssignedBy, setFilterAssignedBy] = useState("");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [tab, setTab] = useState<"stats" | "all" | "pending" | "completed" | "approved" | "reassigned" | "requests" | "users" | "admins" | "categories" | "sites">("stats");
-  const [pendingFilter, setPendingFilter] = useState<"general" | "extend" | "overdue" | "reassign">("general");
+  const [tab, setTab] = useState<"stats" | "all" | "pending" | "requests" | "users" | "admins" | "categories" | "sites">("stats");
+  const [pendingFilter, setPendingFilter] = useState<"general" | "extend" | "overdue" | "reassign" | "completed">("general");
   const [quickFilter, setQuickFilter] = useState<"all" | "pending" | "overdue" | "extension" | "reassign" | "completed">("all");
   const [reassigningId, setReassigningId] = useState<string | null>(null);
   const [reassignUserId, setReassignUserId] = useState("");
@@ -273,11 +273,9 @@ export default function SuperAdminPage() {
       } else if (pendingFilter === "reassign") {
         if (t.status === "COMPLETED") return false;
         if (!t.reassignReason) return false;
+      } else if (pendingFilter === "completed") {
+        if (t.status !== "COMPLETED" || t.locked) return false;
       }
-    } else if (tab === "completed") {
-      if (t.status !== "COMPLETED" || t.locked) return false;
-    } else if (tab === "approved") {
-      if (t.status !== "LOCKED") return false;
     } else if (tab === "all") {
       if (quickFilter === "pending") {
         if (t.status === "COMPLETED" || t.status === "LOCKED" || t.status === "VERIFIED") return false;
@@ -296,7 +294,6 @@ export default function SuperAdminPage() {
         if (t.status !== "COMPLETED" && t.status !== "LOCKED") return false;
       }
     }
-    if (tab === "reassigned") { if (!t.reassignReason) return false; }
     const matchStatus = !filterStatus || t.status === filterStatus;
     const matchCategory = !filterCategory || t.category === filterCategory;
     const matchSite = !filterSite || t.siteProject === filterSite;
@@ -356,9 +353,6 @@ export default function SuperAdminPage() {
             { key: "stats" as const, label: "Overview" },
             { key: "all" as const, label: "All Tasks", count: tasks.length },
             { key: "pending" as const, label: "Pending", count: pendingTasks.length },
-            { key: "completed" as const, label: "Completed", count: awaitingApprovalCount },
-            { key: "approved" as const, label: "Approved Tasks", count: lockedTasks.length },
-            { key: "reassigned" as const, label: "Reassigned", count: reassignedTasks.length },
             { key: "requests" as const, label: "Requests by Users", count: userRequestsCount },
             { key: "users" as const, label: "Users", count: users.length },
             { key: "admins" as const, label: "Admins", count: allAdmins.length },
@@ -602,6 +596,7 @@ export default function SuperAdminPage() {
                   { key: "extend" as const, label: "Extend Date", count: extensionCount },
                   { key: "overdue" as const, label: "Overdue", count: overdueCount },
                   { key: "reassign" as const, label: "Reassign (Incomplete)", count: reassignCount },
+                  { key: "completed" as const, label: "Completed (Awaiting Approval)", count: awaitingApprovalCount },
                 ].map((f) => (
                   <button key={f.key} onClick={() => { setPendingFilter(f.key); setPage(1); }} className={`px-3 py-1.5 rounded-full text-xs font-medium ${pendingFilter === f.key ? "bg-amber-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}>
                     {f.label} ({f.count})
