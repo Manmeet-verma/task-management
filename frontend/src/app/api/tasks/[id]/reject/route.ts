@@ -20,12 +20,20 @@ export async function POST(
 
     if (!snapshot.exists()) return NextResponse.json({ error: "Task not found" }, { status: 404 });
     const task = snapshot.val();
-    if (task.status !== "IN_PROGRESS")
-      return NextResponse.json({ error: "Task is not in review" }, { status: 400 });
+    if (task.status !== "IN_PROGRESS" && task.status !== "COMPLETED")
+      return NextResponse.json({ error: "Task cannot be rejected in current status" }, { status: 400 });
     if (!reason)
       return NextResponse.json({ error: "Rejection reason is required" }, { status: 400 });
 
-    await update(taskRef, { status: "REJECTED", rejectReason: reason, updatedAt: new Date().toISOString() });
+    const existingHistory = task.history || [];
+    const historyEntry = {
+      date: new Date().toISOString(),
+      action: "REJECTED",
+      details: `Task rejected. Reason: ${reason}`,
+      performedBy: user.username,
+    };
+
+    await update(taskRef, { status: "REJECTED", rejectReason: reason, updatedAt: new Date().toISOString(), history: [...existingHistory, historyEntry] });
 
     const newSubRef = push(ref(db, "submissions"));
     await set(newSubRef, {

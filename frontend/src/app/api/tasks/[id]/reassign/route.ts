@@ -59,6 +59,14 @@ export async function POST(
     const oldAssignedSnapshot = oldAssignedId ? await get(ref(db, `users/${oldAssignedId}`)) : null;
     const oldAssignedName = oldAssignedSnapshot?.exists() ? oldAssignedSnapshot.val().username : "Unknown";
 
+    const existingHistory = task.history || [];
+    const historyEntry = {
+      date: new Date().toISOString(),
+      action: "REASSIGNED",
+      details: `Task reassigned from ${oldAssignedName} to ${newUserData.username}. Reason: ${reason.trim()}`,
+      performedBy: user.username,
+    };
+
     await update(taskRef, {
       assignedToId,
       assignedToIds: [assignedToId],
@@ -67,6 +75,7 @@ export async function POST(
       updatedAt: new Date().toISOString(),
       reassignReason: reason.trim(),
       reassignedBy: user.username,
+      history: [...existingHistory, historyEntry],
     });
 
     const adminSnapshot = await get(ref(db, `users/${user.id}`));

@@ -159,17 +159,55 @@ export default function TaskDetailPage() {
 
   const canManage = user && task && task.createdById === user.id && task.assignedToId !== user.id;
 
-  const handleApproveComplete = async () => {
-    try { await api.tasks.approveComplete(taskId); loadTask(); } catch (err) { console.error(err); }
+  const [editingAttachments, setEditingAttachments] = useState(false);
+  const [editFiles, setEditFiles] = useState<File[]>([]);
+  const [editFilePreviews, setEditFilePreviews] = useState<string[]>([]);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
+  const editCameraInputRef = useRef<HTMLInputElement>(null);
+  const [editRemarks, setEditRemarks] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const handleEditFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    const newFiles = Array.from(files);
+    setEditFiles(prev => [...prev, ...newFiles]);
+    newFiles.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => setEditFilePreviews(prev => [...prev, ev.target?.result as string]);
+      reader.readAsDataURL(file);
+    });
+    e.target.value = "";
   };
 
-  const handleApproveExtend = async () => {
-    try { await api.tasks.approveExtend(taskId); loadTask(); } catch (err) { console.error(err); }
+  const removeEditFile = (index: number) => {
+    setEditFiles(prev => prev.filter((_, i) => i !== index));
+    setEditFilePreviews(prev => prev.filter((_, i) => i !== index));
   };
 
-  const [rejectExtendReason, setRejectExtendReason] = useState("");
-  const handleRejectExtend = async () => {
-    try { await api.tasks.rejectExtend(taskId, rejectExtendReason); setRejectExtendReason(""); loadTask(); } catch (err) { console.error(err); }
+  const handleSaveEdit = async () => {
+    setSavingEdit(true);
+    try {
+      const formData = new FormData();
+      if (editRemarks.trim()) formData.append("remarks", editRemarks.trim());
+      for (const file of editFiles) {
+        formData.append("files", file);
+      }
+      const token = localStorage.getItem("token");
+      const res = await fetch(`/api/tasks/${taskId}/complete`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed");
+      setEditingAttachments(false);
+      setEditFiles([]);
+      setEditFilePreviews([]);
+      setEditRemarks("");
+      loadTask();
+    } catch (err) { console.error(err); }
+    finally { setSavingEdit(false); }
   };
 
   const handleReassign = async () => {
@@ -222,6 +260,57 @@ export default function TaskDetailPage() {
             </div>
           )}
         </div>
+
+        {task.status === "COMPLETED" && !task.locked && task.assignedToId === user?.id && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 p-6 mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-blue-800 dark:text-blue-300">Edit Completion</h2>
+                <p className="text-sm text-blue-700 dark:text-blue-400">You can update your completion remarks and attachments before admin approval.</p>
+              </div>
+              <button onClick={() => setEditingAttachments(!editingAttachments)} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm font-medium">
+                {editingAttachments ? "Cancel Edit" : "Edit Completion"}
+              </button>
+            </div>
+            {editingAttachments && (
+              <div className="mt-4 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Update Remarks (optional)</label>
+                  <textarea value={editRemarks} onChange={(e) => setEditRemarks(e.target.value)} rows={3} className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Update your completion remarks..." />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Replace/Add Files</label>
+                  <div className="flex gap-2 flex-wrap">
+                    <input ref={editFileInputRef} type="file" multiple onChange={handleEditFileSelect} className="hidden" />
+                    <button type="button" onClick={() => editFileInputRef.current?.click()} className="bg-blue-500 text-white px-3 py-2 rounded-md hover:bg-blue-600 text-sm">+ Add File</button>
+                    <input ref={editCameraInputRef} type="file" accept="image/*" capture="environment" multiple onChange={handleEditFileSelect} className="hidden" />
+                    <button type="button" onClick={() => editCameraInputRef.current?.click()} className="bg-purple-500 text-white px-3 py-2 rounded-md hover:bg-purple-600 text-sm">Camera</button>
+                  </div>
+                  {editFiles.length > 0 && (
+                    <div className="mt-3 grid grid-cols-3 gap-2">
+                      {editFilePreviews.map((preview, i) => (
+                        <div key={i} className="relative">
+                          {editFiles[i]?.type.startsWith("image/") ? (
+                            <img src={preview} alt={`Preview ${i + 1}`} className="w-full h-24 object-cover rounded border border-gray-200 dark:border-gray-700" />
+                          ) : (
+                            <div className="w-full h-24 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-700">
+                              <p className="text-xs text-gray-500 dark:text-gray-400 text-center px-1">{editFiles[i]?.name}</p>
+                            </div>
+                          )}
+                          <button type="button" onClick={() => removeEditFile(i)} className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600">x</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={handleSaveEdit} disabled={savingEdit} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm">{savingEdit ? "Saving..." : "Save Changes"}</button>
+                  <button onClick={() => { setEditingAttachments(false); setEditFiles([]); setEditFilePreviews([]); setEditRemarks(""); }} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 text-sm">Cancel</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {task.locked && (
           <div className="bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 p-6 mb-6">
@@ -315,9 +404,9 @@ export default function TaskDetailPage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
             <h2 className="text-lg font-semibold mb-4 dark:text-white">Take Action</h2>
             <div className="grid grid-cols-2 gap-4">
-                <button onClick={() => setShowCompleteForm(true)} className="bg-green-600 text-white px-4 py-3 rounded-md hover:bg-green-700 font-medium text-sm">
-                  Accept & Approve
-                </button>
+              <button onClick={() => setShowCompleteForm(true)} className="bg-green-600 text-white px-4 py-3 rounded-md hover:bg-green-700 font-medium text-sm">
+                Complete Task
+              </button>
               <button onClick={() => setShowExtendForm(true)} className="bg-orange-500 text-white px-4 py-3 rounded-md hover:bg-orange-600 font-medium text-sm">
                 Extend Date
               </button>
@@ -325,55 +414,11 @@ export default function TaskDetailPage() {
           </div>
         )}
 
-        {canManage && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-indigo-200 dark:border-indigo-800 p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-4 dark:text-white">Task Creator Actions</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">You created this task. Manage it below.</p>
-            <div className="flex flex-wrap gap-2">
-              {task.status === "COMPLETED" && !task.locked && (
-                <button onClick={handleApproveComplete} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm font-medium">Accept & Approve</button>
-              )}
-              {task.extendStatus === "PENDING" && (
-                <>
-                  <button onClick={handleApproveExtend} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm font-medium">Accept Extension</button>
-                  <button onClick={() => setRejectExtendReason("-")} className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 text-sm font-medium">Reject Extension</button>
-                </>
-              )}
-              {!task.locked && task.status !== "LOCKED" && task.status !== "COMPLETED" && (
-                <button onClick={() => setReassigning(!reassigning)} className="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600 text-sm font-medium">Reassign</button>
-              )}
-              <button onClick={handleDelete} className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 text-sm font-medium">Delete</button>
-            </div>
-            {rejectExtendReason === "-" && (
-              <div className="mt-3 flex gap-2">
-                <input type="text" value={rejectExtendReason === "-" ? "" : rejectExtendReason} onChange={(e) => setRejectExtendReason(e.target.value)} placeholder="Rejection reason (optional)" className="flex-1 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white text-sm" />
-                <button onClick={handleRejectExtend} className="bg-red-600 text-white px-3 py-2 rounded-md hover:bg-red-700 text-sm">Confirm</button>
-                <button onClick={() => setRejectExtendReason("")} className="bg-gray-200 dark:bg-gray-700 px-3 py-2 rounded-md text-sm">Cancel</button>
-              </div>
-            )}
-            {reassigning && (
-              <div className="mt-3 space-y-2">
-                <select value={reassignUserId} onChange={(e) => setReassignUserId(e.target.value)} className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white text-sm">
-                  <option value="">Select user</option>
-                  {allUsers.map((u: any) => (
-                    <option key={u.id} value={u.id}>{u.username} ({u.role})</option>
-                  ))}
-                </select>
-                <input type="text" value={reassignReason} onChange={(e) => setReassignReason(e.target.value)} placeholder="Reassignment reason *" className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white text-sm" />
-                <div className="flex gap-2">
-                  <button onClick={handleReassign} disabled={!reassignUserId || !reassignReason.trim()} className="bg-orange-500 text-white px-3 py-2 rounded-md hover:bg-orange-600 text-sm disabled:opacity-50">Confirm Reassign</button>
-                  <button onClick={() => { setReassigning(false); setReassignUserId(""); setReassignReason(""); }} className="bg-gray-200 dark:bg-gray-700 px-3 py-2 rounded-md text-sm">Cancel</button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
         {showCompleteForm && (
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-green-200 dark:border-green-800 p-6 mb-6">
             <form onSubmit={handleComplete} className="space-y-4">
-              <h2 className="text-lg font-semibold dark:text-white">Accept & Approve Task</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Please provide remarks and optionally attach any file (PDF, images, Excel, Word, etc.).</p>
+              <h2 className="text-lg font-semibold dark:text-white">Complete Task</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Provide remarks about your work and optionally attach files (PDF, images, Excel, Word, etc.).</p>
               <textarea value={completeRemarks} onChange={(e) => setCompleteRemarks(e.target.value)} rows={4} className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Describe what you did to complete this task..." required />
 
               <div>
@@ -420,7 +465,7 @@ export default function TaskDetailPage() {
               </div>
 
               <div className="flex gap-2">
-                <button type="submit" disabled={completing} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-50">{completing ? "Submitting..." : "Submit & Approve"}</button>
+                <button type="submit" disabled={completing} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-50">{completing ? "Submitting..." : "Submit Completion"}</button>
                 <button type="button" onClick={() => { setShowCompleteForm(false); setCompleteRemarks(""); setCompleteFiles([]); setCompleteFilePreviews([]); }} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">Cancel</button>
               </div>
             </form>
@@ -500,9 +545,29 @@ export default function TaskDetailPage() {
         )}
 
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-          <h2 className="text-lg font-semibold mb-4 dark:text-white">History ({submissions.length})</h2>
-          {submissions.length === 0 ? (
+          <h2 className="text-lg font-semibold mb-4 dark:text-white">Task History</h2>
+          {task.history && task.history.length > 0 && (
+            <div className="mb-4 space-y-2">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Change Log:</p>
+              {task.history.map((h: any, i: number) => (
+                <div key={i} className="bg-gray-50 dark:bg-gray-900 rounded-md p-3 border border-gray-100 dark:border-gray-700">
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                    <span className="font-medium">{h.action}</span>
+                    {h.details && <span className="text-gray-500 dark:text-gray-400"> - {h.details}</span>}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {h.performedBy && <span>by {h.performedBy} </span>}
+                    {h.date && <span>at {new Date(h.date).toLocaleString()}</span>}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+          <h3 className="text-md font-semibold mb-3 dark:text-white">Submissions ({submissions.length})</h3>
+          {submissions.length === 0 && !(task.history && task.history.length > 0) ? (
             <p className="text-gray-500 dark:text-gray-400 text-sm">No history yet.</p>
+          ) : submissions.length === 0 ? (
+            <p className="text-gray-500 dark:text-gray-400 text-sm">No submissions yet.</p>
           ) : (
             <div className="space-y-4">
               {submissions.map((sub) => (

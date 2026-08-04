@@ -29,9 +29,9 @@ export default function AdminPage() {
   const [filterAssignedBy, setFilterAssignedBy] = useState("");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [tab, setTab] = useState<"all" | "pending" | "approved" | "users" | "categories" | "sites">("all");
+  const [tab, setTab] = useState<"all" | "pending" | "completed" | "approved" | "users" | "categories" | "sites">("all");
   const [quickFilter, setQuickFilter] = useState<"all" | "pending" | "overdue" | "extension" | "reassign" | "completed">("all");
-  const [pendingFilter, setPendingFilter] = useState<"general" | "extend" | "overdue" | "awaitingApproval" | "reassign">("general");
+  const [pendingFilter, setPendingFilter] = useState<"general" | "extend" | "overdue" | "reassign">("general");
   const [reassigningId, setReassigningId] = useState<string | null>(null);
   const [reassignUserId, setReassignUserId] = useState("");
   const [reassignReason, setReassignReason] = useState("");
@@ -41,6 +41,8 @@ export default function AdminPage() {
   const [rejectExtendReason, setRejectExtendReason] = useState("");
   const [remarksTaskId, setRemarksTaskId] = useState<string | null>(null);
   const [remarksText, setRemarksText] = useState("");
+  const [rejectTaskId, setRejectTaskId] = useState<string | null>(null);
+  const [rejectTaskReason, setRejectTaskReason] = useState("");
   const [now, setNow] = useState(new Date());
 
   const toggleExpandTask = async (task: Task) => {
@@ -179,6 +181,15 @@ export default function AdminPage() {
     } catch (err) { console.error(err); }
   };
 
+  const handleRejectTask = async (id: string) => {
+    try {
+      await api.tasks.reject(id, rejectTaskReason || "Rejected by admin");
+      setRejectTaskId(null);
+      setRejectTaskReason("");
+      loadData();
+    } catch (err: any) { alert(err.message || "Failed"); }
+  };
+
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -243,9 +254,7 @@ export default function AdminPage() {
     }
     if (tab === "pending") {
       if (t.status === "LOCKED" || t.status === "VERIFIED") return false;
-      if (pendingFilter === "awaitingApproval") {
-        if (t.status !== "COMPLETED" || t.locked) return false;
-      } else if (pendingFilter === "general") {
+      if (pendingFilter === "general") {
         if (t.status === "COMPLETED") return false;
         if (t.reassignReason) return false;
         if (t.extendStatus === "PENDING") return false;
@@ -260,6 +269,8 @@ export default function AdminPage() {
         if (t.status === "COMPLETED") return false;
         if (!t.reassignReason) return false;
       }
+    } else if (tab === "completed") {
+      if (t.status !== "COMPLETED" || t.locked) return false;
     } else if (tab === "all") {
       if (quickFilter === "pending") {
         if (t.status === "COMPLETED" || t.status === "LOCKED" || t.status === "VERIFIED") return false;
@@ -277,6 +288,8 @@ export default function AdminPage() {
       } else if (quickFilter === "completed") {
         if (t.status !== "COMPLETED" && t.status !== "LOCKED") return false;
       }
+    } else if (tab === "completed") {
+      if (t.status !== "COMPLETED" || t.locked) return false;
     } else if (tab === "approved") {
       if (t.status !== "LOCKED") return false;
     }
@@ -335,6 +348,7 @@ export default function AdminPage() {
           {[
             { key: "all" as const, label: "All Tasks", count: tasks.length },
             { key: "pending" as const, label: "Pending", count: allPendingTasks.length },
+            { key: "completed" as const, label: "Completed", count: awaitingApprovalCount },
             { key: "approved" as const, label: "Approved Tasks", count: approvedTasks.length },
             { key: "users" as const, label: "Users", count: users.length },
             { key: "categories" as const, label: "Categories", count: categories.length },
@@ -466,7 +480,6 @@ export default function AdminPage() {
                   { key: "general" as const, label: "General Pending", count: generalPendingCount },
                   { key: "extend" as const, label: "Extend Date", count: extensionCount },
                   { key: "overdue" as const, label: "Overdue", count: overdueCount },
-                  { key: "awaitingApproval" as const, label: "Awaiting Approval", count: awaitingApprovalCount },
                   { key: "reassign" as const, label: "Reassign (Incomplete)", count: reassignCount },
                 ].map((f) => (
                   <button key={f.key} onClick={() => { setPendingFilter(f.key); setPage(1); }} className={`px-3 py-1.5 rounded-full text-xs font-medium ${pendingFilter === f.key ? "bg-indigo-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}>
@@ -493,14 +506,6 @@ export default function AdminPage() {
             )}
 
             <div className="flex gap-4 mb-4 flex-wrap">
-              <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }} className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 dark:text-white text-sm">
-                <option value="">All Status</option>
-                <option value="ASSIGNED">Assigned</option>
-                <option value="IN_PROGRESS">Pending</option>
-                <option value="PENDING">Pending Review</option>
-                <option value="COMPLETED">Completed</option>
-                <option value="LOCKED">Completed(locked)</option>
-              </select>
               <select value={filterCategory} onChange={(e) => { setFilterCategory(e.target.value); setPage(1); }} className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 dark:text-white text-sm">
                 <option value="">All Categories</option>
                 {categories.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}

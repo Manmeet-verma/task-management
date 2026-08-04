@@ -76,6 +76,15 @@ export async function POST(
       updateData.completedAttachmentCount = allAttachments.length;
     }
 
+    const historyEntry = {
+      date: new Date().toISOString(),
+      action: "COMPLETED",
+      details: `Task completed by ${user.username}. Remarks: "${remarks.trim()}"`,
+      performedBy: user.username,
+    };
+    const existingHistory = task.history || [];
+    updateData.history = [...existingHistory, historyEntry];
+
     await update(taskRef, updateData);
     await createNotification(
       task.createdById,

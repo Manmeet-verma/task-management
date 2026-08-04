@@ -69,6 +69,15 @@ export async function POST(
       updateData.extendAttachments = extendAttachments;
     }
 
+    const existingHistory = task.history || [];
+    const historyEntry = {
+      date: new Date().toISOString(),
+      action: "EXTEND_REQUEST",
+      details: `Extension requested to ${newDeadline}${reason ? `. Reason: ${reason}` : ""}`,
+      performedBy: user.username,
+    };
+    updateData.history = [...existingHistory, historyEntry];
+
     await update(taskRef, updateData);
     await createNotification(task.createdById, `${user.username} requested deadline extension for "${task.name}" to ${newDeadline}${reason ? `: ${reason}` : ""}`, "EXTEND_REQUEST", id);
 

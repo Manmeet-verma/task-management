@@ -38,7 +38,15 @@ export async function POST(
       return NextResponse.json({ error: "Only the admin who assigned this task can lock it" }, { status: 403 });
     }
 
-    await update(taskRef, { locked: true, updatedAt: new Date().toISOString() });
+    const existingHistory = task.history || [];
+    const historyEntry = {
+      date: new Date().toISOString(),
+      action: "LOCKED",
+      details: "Task locked by admin",
+      performedBy: user.username,
+    };
+
+    await update(taskRef, { locked: true, updatedAt: new Date().toISOString(), history: [...existingHistory, historyEntry] });
     if (task.assignedToId) {
       await createNotification(task.assignedToId, `Admin has locked "${task.name}". No further changes allowed.`, "LOCKED", id);
     }

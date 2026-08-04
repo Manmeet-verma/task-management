@@ -43,7 +43,15 @@ export async function POST(
 
     const adminName = userData?.username || "Admin";
 
-    await update(taskRef, { status: "COMPLETED", locked: true, updatedAt: new Date().toISOString() });
+    const existingHistory = task.history || [];
+    const historyEntry = {
+      date: new Date().toISOString(),
+      action: "APPROVED",
+      details: `Task approved and locked by ${adminName}`,
+      performedBy: adminName,
+    };
+
+    await update(taskRef, { status: "COMPLETED", locked: true, updatedAt: new Date().toISOString(), history: [...existingHistory, historyEntry] });
     if (task.assignedToId) {
       await createNotification(task.assignedToId, `Your completed task "${task.name}" has been approved by ${adminName}.`, "COMPLETED", id);
     }

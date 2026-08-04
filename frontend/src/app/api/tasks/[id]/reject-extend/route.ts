@@ -47,6 +47,14 @@ export async function POST(
     const extReason = task.extendReason || "";
     const adminName = userData?.username || "Admin";
 
+    const existingHistory = task.history || [];
+    const historyEntry = {
+      date: new Date().toISOString(),
+      action: "EXTEND_REJECTED",
+      details: `Extension rejected by ${adminName}${reason ? `. Reason: ${reason}` : ""}`,
+      performedBy: adminName,
+    };
+
     await update(taskRef, {
       extendStatus: "REJECTED",
       lastExtReason: extReason,
@@ -55,6 +63,7 @@ export async function POST(
       extRejectReason: reason || "",
       extRejectedBy: adminName,
       updatedAt: new Date().toISOString(),
+      history: [...existingHistory, historyEntry],
     });
     if (task.assignedToId) {
       await createNotification(task.assignedToId, `Your deadline extension request for "${task.name}" has been rejected by ${adminName}.${reason ? ` Reason: ${reason}` : ""}`, "EXTEND_REJECTED", id);

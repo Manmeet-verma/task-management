@@ -22,10 +22,19 @@ export async function POST(
     if (task.status !== "AVAILABLE")
       return NextResponse.json({ error: "Task is not available" }, { status: 400 });
 
+    const existingHistory = task.history || [];
+    const historyEntry = {
+      date: new Date().toISOString(),
+      action: "CLAIMED",
+      details: `Task claimed by ${user.username}`,
+      performedBy: user.username,
+    };
+
     const updates: Record<string, any> = {
       assignedToId: user.id,
       status: "IN_PROGRESS",
       updatedAt: new Date().toISOString(),
+      history: [...existingHistory, historyEntry],
     };
     if (userDeadline) updates.userDeadline = new Date(userDeadline).toISOString();
 

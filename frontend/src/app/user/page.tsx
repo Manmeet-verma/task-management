@@ -29,8 +29,8 @@ export default function UserPage() {
   const [selectedSite, setSelectedSite] = useState<string>("");
   const [now, setNow] = useState(new Date());
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
-  const [tab, setTab] = useState<"all" | "pending" | "completed">("all");
-  const [pendingFilter, setPendingFilter] = useState<"general" | "extend" | "overdue" | "awaitingApproval" | "reassign">("general");
+  const [tab, setTab] = useState<"all" | "pending" | "completed" | "locked">("all");
+  const [pendingFilter, setPendingFilter] = useState<"general" | "extend" | "overdue" | "reassign">("general");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
 
@@ -93,12 +93,12 @@ export default function UserPage() {
   };
 
   const allPendingTasks = myTasks.filter((t) => t.status !== "LOCKED" && t.status !== "VERIFIED");
-  const completedTasks = myTasks.filter((t) => t.status === "LOCKED");
+  const completedTasks = myTasks.filter((t) => t.status === "COMPLETED" && !t.locked);
+  const lockedTasks = myTasks.filter((t) => t.status === "LOCKED");
   const pendingReviewTasks = myTasks.filter((t) => t.status === "COMPLETED" && !t.locked);
   const generalPendingCount = allPendingTasks.filter((t) => t.status !== "COMPLETED" && !t.reassignReason && t.extendStatus !== "PENDING" && !isOverdue(t)).length;
   const extendDateCount = allPendingTasks.filter((t) => t.status !== "COMPLETED" && t.extendStatus === "PENDING").length;
   const overdueCount = allPendingTasks.filter((t) => t.status !== "COMPLETED" && isOverdue(t) && !t.reassignReason && t.extendStatus !== "PENDING").length;
-  const awaitingApprovalCount = allPendingTasks.filter((t) => t.status === "COMPLETED" && !t.locked).length;
   const reassignCount = allPendingTasks.filter((t) => t.status !== "COMPLETED" && t.reassignReason).length;
 
   const filteredTasks = myTasks.filter((t) => {
@@ -118,13 +118,13 @@ export default function UserPage() {
       } else if (pendingFilter === "overdue") {
         if (t.status === "COMPLETED") return false;
         if (!isOverdue(t)) return false;
-      } else if (pendingFilter === "awaitingApproval") {
-        if (t.status !== "COMPLETED" || t.locked) return false;
       } else if (pendingFilter === "reassign") {
         if (t.status === "COMPLETED") return false;
         if (!t.reassignReason) return false;
       }
     } else if (tab === "completed") {
+      if (t.status !== "COMPLETED" || t.locked) return false;
+    } else if (tab === "locked") {
       if (t.status !== "LOCKED") return false;
     }
     return true;
@@ -200,7 +200,8 @@ export default function UserPage() {
               {[
                 { key: "all" as const, label: "All Tasks", count: myTasks.length },
                 { key: "pending" as const, label: "Pending", count: allPendingTasks.length },
-                { key: "completed" as const, label: "Approved & Locked", count: completedTasks.length },
+                { key: "completed" as const, label: "Completed", count: completedTasks.length },
+                { key: "locked" as const, label: "Approved & Locked", count: lockedTasks.length },
               ].map((t) => (
                 <button key={t.key} onClick={() => { setTab(t.key); setPage(1); setPendingFilter("general"); }} className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${tab === t.key ? "border-indigo-600 text-indigo-600 dark:text-indigo-400" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"}`}>
                   {t.label} ({t.count})
@@ -214,7 +215,6 @@ export default function UserPage() {
                   { key: "general" as const, label: "General Pending", count: generalPendingCount },
                   { key: "extend" as const, label: "Extend Date", count: extendDateCount },
                   { key: "overdue" as const, label: "Overdue", count: overdueCount },
-                  { key: "awaitingApproval" as const, label: "Awaiting Approval", count: awaitingApprovalCount },
                   { key: "reassign" as const, label: "Reassign (Incomplete)", count: reassignCount },
                 ].map((f) => (
                   <button key={f.key} onClick={() => { setPendingFilter(f.key); setPage(1); }} className={`px-3 py-1.5 rounded-full text-xs font-medium ${pendingFilter === f.key ? "bg-indigo-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}>
@@ -230,9 +230,9 @@ export default function UserPage() {
                 {tab === "pending" && pendingFilter === "general" && "General Pending Tasks"}
                 {tab === "pending" && pendingFilter === "extend" && "Extend Date Tasks"}
                 {tab === "pending" && pendingFilter === "overdue" && "Overdue Tasks"}
-                {tab === "pending" && pendingFilter === "awaitingApproval" && "Awaiting Approval Tasks"}
                 {tab === "pending" && pendingFilter === "reassign" && "Reassign (Incomplete) Tasks"}
-                {tab === "completed" && "Approved & Locked Tasks"}
+                {tab === "completed" && "Completed (Awaiting Approval)"}
+                {tab === "locked" && "Approved & Locked Tasks"}
                 <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">({filteredTasks.length})</span>
               </h2>
             </div>
@@ -310,7 +310,7 @@ export default function UserPage() {
                             {(task.extendReason || task.lastExtReason || task.completedRemarks || task.reassignReason || task.extRejectReason || task.pendingReason || task.rejectReason || (task.history && task.history.length > 0)) && (
                               <button onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)} className="text-[10px] text-gray-600 dark:text-gray-400 underline">History</button>
                             )}
-                            {canAct && task.assignedToId === user?.id && (
+                            {task.assignedToId === user?.id && !task.locked && task.status !== "LOCKED" && task.status !== "REJECTED" && (
                               <Link href={`/user/tasks/${task.id}`} className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded hover:bg-indigo-700">Open</Link>
                             )}
                           </div>

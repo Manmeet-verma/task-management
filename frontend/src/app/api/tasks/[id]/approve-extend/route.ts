@@ -45,6 +45,14 @@ export async function POST(
     const extReason = task.extendReason || "";
     const extDeadline = task.extendDeadline;
 
+    const existingHistory = task.history || [];
+    const historyEntry = {
+      date: new Date().toISOString(),
+      action: "EXTEND_APPROVED",
+      details: `Extension approved. New deadline: ${extDeadline}`,
+      performedBy: userData?.username || "Admin",
+    };
+
     await update(taskRef, {
       deadline: extDeadline,
       extensionCount: newCount,
@@ -53,6 +61,7 @@ export async function POST(
       extendDeadline: null,
       extendReason: null,
       updatedAt: new Date().toISOString(),
+      history: [...existingHistory, historyEntry],
     });
     if (task.assignedToId) {
       await createNotification(task.assignedToId, `Your deadline extension for "${task.name}" has been approved. New deadline: ${extDeadline}`, "EXTEND_APPROVED", id);
