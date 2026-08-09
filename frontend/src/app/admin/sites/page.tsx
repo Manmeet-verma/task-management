@@ -85,7 +85,7 @@ export default function AdminSitesPage() {
     <div className="min-h-screen dark:bg-gray-900">
       <Navbar />
       <div className="max-w-3xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
           <div>
             <h1 className="text-2xl font-bold dark:text-white">Manage Sites</h1>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -123,7 +123,7 @@ export default function AdminSitesPage() {
             {sites.map((site) => (
               <div
                 key={site.id}
-                className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center justify-between"
+                className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex flex-wrap items-center justify-between gap-2"
               >
                 <div className="flex-1">
                   {editingId === site.id ? (
@@ -140,7 +140,7 @@ export default function AdminSitesPage() {
                       <button onClick={() => { setEditingId(null); setEditName(""); }} className="text-xs text-gray-500 px-2">Cancel</button>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-medium dark:text-white">{site.name}</p>
                       <span className={`text-xs px-2 py-0.5 rounded-full ${site.status === "ACTIVE" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"}`}>
                         {site.status}

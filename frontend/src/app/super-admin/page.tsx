@@ -316,12 +316,12 @@ export default function SuperAdminPage() {
     <div className="min-h-screen dark:bg-gray-900">
       <Navbar />
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
           <h1 className="text-2xl font-bold dark:text-white flex items-center gap-2">
             <span className="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-3 py-1 rounded-full text-sm">Super Admin</span>
             System Dashboard
           </h1>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Link href="/tasks/new" className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">+ Create Task</Link>
             {tab === "users" && (
               <button onClick={() => { setEditingUser(null); setUserForm({ username: "", email: "", password: "", role: "USER", isMaster: false, panCard: "", aadharCard: "", gst: "" }); setShowUserForm(true); }} className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm">+ New User</button>
@@ -372,7 +372,7 @@ export default function SuperAdminPage() {
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-6">
             <h2 className="text-lg font-semibold mb-4 dark:text-white">{editingUser ? "Edit User" : "Create User"}</h2>
             <form onSubmit={handleCreateUser} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Username</label>
                   <input type="text" value={userForm.username} onChange={(e) => setUserForm({ ...userForm, username: e.target.value })} required className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
@@ -469,7 +469,7 @@ export default function SuperAdminPage() {
                 <h3 className="text-lg font-semibold mb-4 dark:text-white">Tasks by Admin</h3>
                 <div className="space-y-3">
                   {stats.tasksByAdmin.map((admin) => (
-                    <button key={admin.adminId} onClick={() => { setTab("all"); setFilterAssignedBy(admin.adminId); setPage(1); }} className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer text-left">
+                    <button key={admin.adminId} onClick={() => { setTab("all"); setFilterAssignedBy(admin.adminId); setPage(1); }} className="w-full flex flex-wrap items-center justify-between gap-2 p-3 bg-gray-50 dark:bg-gray-900 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer text-left">
                       <div>
                         <p className="font-medium dark:text-white">{admin.username}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">{admin.taskCount} tasks created</p>

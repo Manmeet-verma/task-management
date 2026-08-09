@@ -240,14 +240,14 @@ export default function TaskDetailPage() {
         <button onClick={() => router.back()} className="text-sm text-indigo-600 hover:underline mb-4">&larr; Back</button>
 
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
-          <div className="flex items-start justify-between mb-4">
+          <div className="flex flex-wrap items-start justify-between gap-2 mb-4">
             <h1 className="text-2xl font-bold dark:text-white">{task.name}</h1>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {isOverdue && <span className="text-xs bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-300 px-2 py-0.5 rounded-full font-medium">Overdue</span>}
               <StatusBadge status={task.status} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 dark:text-gray-400 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-gray-600 dark:text-gray-400 mb-4">
             <p><span className="font-medium">Category:</span> {task.category}</p>
             <p><span className="font-medium">Site:</span> {task.siteProject}</p>
             <p><span className="font-medium">Deadline:</span> {new Date(task.deadline).toLocaleDateString()}</p>
@@ -266,7 +266,7 @@ export default function TaskDetailPage() {
 
         {task.status === "COMPLETED" && !task.locked && task.assignedToId === user?.id && (
           <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 p-6 mb-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h2 className="text-lg font-semibold text-blue-800 dark:text-blue-300">Edit Completion</h2>
                 <p className="text-sm text-blue-700 dark:text-blue-400">You can update your completion remarks and attachments before admin approval.</p>
@@ -434,7 +434,7 @@ export default function TaskDetailPage() {
         {canAct && task.assignedToId === user?.id && (
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
             <h2 className="text-lg font-semibold mb-4 dark:text-white">Take Action</h2>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <button onClick={() => setShowCompleteForm(true)} className="bg-green-600 text-white px-4 py-3 rounded-md hover:bg-green-700 font-medium text-sm">
                 Complete Task
               </button>
@@ -518,7 +518,7 @@ export default function TaskDetailPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Attach Files (optional)</label>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <input ref={extendFileInputRef} type="file" multiple onChange={handleExtendFileSelect} className="hidden" />
                   <button type="button" onClick={() => extendFileInputRef.current?.click()} className="bg-blue-500 text-white px-3 py-2 rounded-md hover:bg-blue-600 text-sm">
                     + Add File (Any Type)

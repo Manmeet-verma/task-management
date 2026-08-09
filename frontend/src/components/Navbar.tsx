@@ -160,7 +160,7 @@ export default function Navbar() {
       </div>
       {/* Mobile bottom bar for links */}
       {user && (
-        <div className="sm:hidden border-t border-gray-200 dark:border-gray-700 px-4 py-2 flex items-center justify-between text-xs">
+        <div className="sm:hidden border-t border-gray-200 dark:border-gray-700 px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-3">
             <span className="text-gray-500 dark:text-gray-400">{user.username}</span>
             {user.role === "ADMIN" && user.isMaster && (
