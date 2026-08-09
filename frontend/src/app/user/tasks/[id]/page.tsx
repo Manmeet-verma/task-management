@@ -46,7 +46,7 @@ export default function TaskDetailPage() {
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
-    if (!loading && (!user || user.role !== "USER")) router.replace("/login");
+    if (!loading && (!user || (user.role !== "USER" && user.role !== "ADMIN"))) router.replace("/login");
   }, [user, loading, router]);
 
   useEffect(() => {
@@ -370,7 +370,7 @@ export default function TaskDetailPage() {
 
         {task.status === "COMPLETED" && !task.locked && (
           <div className="bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800 p-6 mb-6">
-            <h2 className="text-lg font-semibold text-green-800 dark:text-green-300">Awaiting Approval</h2>
+            <h2 className="text-lg font-semibold text-green-800 dark:text-green-300">Waiting Approval</h2>
             <p className="text-sm text-green-700 dark:text-green-400">Waiting for admin to accept and approve this task.</p>
             {task.completedRemarks && (
               <div className="mt-3 bg-white dark:bg-gray-800 border border-green-200 dark:border-green-800 rounded-md p-3">

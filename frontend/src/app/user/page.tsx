@@ -31,6 +31,11 @@ export default function UserPage() {
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [tab, setTab] = useState<"all" | "pending" | "locked" | "requests">("all");
   const [pendingFilter, setPendingFilter] = useState<"general" | "extend" | "overdue" | "reassign" | "completed">("general");
+  const [filterCategory, setFilterCategory] = useState("");
+  const [filterSite, setFilterSite] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterRequestedBy, setFilterRequestedBy] = useState("");
+  const [filterRequestTo, setFilterRequestTo] = useState("");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
 
@@ -57,6 +62,19 @@ export default function UserPage() {
       setSites(st);
     } catch (err) { console.error(err); }
     finally { setLoadingData(false); }
+  };
+
+  const handleApproveComplete = async (id: string) => {
+    try { await api.tasks.approveComplete(id); loadData(); } catch (err: any) { alert(err.message || "Failed to approve"); }
+  };
+
+  const handleApproveExtend = async (id: string) => {
+    try { await api.tasks.approveExtend(id); loadData(); } catch (err: any) { alert(err.message || "Failed to approve extension"); }
+  };
+
+  const handleRejectExtend = async (id: string) => {
+    const reason = window.prompt("Reject reason (optional):") || "";
+    try { await api.tasks.rejectExtend(id, reason || undefined); loadData(); } catch (err: any) { alert(err.message || "Failed to reject extension"); }
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -92,10 +110,10 @@ export default function UserPage() {
     return overdueThreshold < now && task.status !== "COMPLETED" && task.status !== "LOCKED" && task.status !== "VERIFIED";
   };
 
-  const allPendingTasks = myTasks.filter((t) => t.status !== "LOCKED" && t.status !== "VERIFIED");
-  const completedTasks = myTasks.filter((t) => t.status === "COMPLETED" && !t.locked);
-  const lockedTasks = myTasks.filter((t) => t.status === "LOCKED");
-  const pendingReviewTasks = myTasks.filter((t) => t.status === "COMPLETED" && !t.locked);
+  const allPendingTasks = myTasks.filter((t) => t.createdById !== user?.id && t.status !== "LOCKED" && t.status !== "VERIFIED");
+  const completedTasks = myTasks.filter((t) => t.createdById !== user?.id && t.status === "COMPLETED" && !t.locked);
+  const lockedTasks = myTasks.filter((t) => t.createdById !== user?.id && t.status === "LOCKED");
+  const pendingReviewTasks = myTasks.filter((t) => t.createdById !== user?.id && t.status === "COMPLETED" && !t.locked);
   const generalPendingCount = allPendingTasks.filter((t) => t.status !== "COMPLETED" && !t.reassignReason && t.extendStatus !== "PENDING" && !isOverdue(t)).length;
   const extendDateCount = allPendingTasks.filter((t) => t.status !== "COMPLETED" && t.extendStatus === "PENDING").length;
   const overdueCount = allPendingTasks.filter((t) => t.status !== "COMPLETED" && isOverdue(t) && !t.reassignReason && t.extendStatus !== "PENDING").length;
@@ -109,6 +127,7 @@ export default function UserPage() {
     if (tab === "requests") {
       if (t.createdById !== user?.id) return false;
     } else if (tab === "pending") {
+      if (t.createdById === user?.id) return false;
       if (t.status === "LOCKED" || t.status === "VERIFIED") return false;
       if (pendingFilter === "general") {
         if (t.status === "COMPLETED") return false;
@@ -128,13 +147,35 @@ export default function UserPage() {
         if (t.status !== "COMPLETED" || t.locked) return false;
       }
     } else if (tab === "locked") {
+      if (t.createdById === user?.id) return false;
       if (t.status !== "LOCKED") return false;
     }
+    if (filterCategory && t.category !== filterCategory) return false;
+    if (filterSite && t.siteProject !== filterSite) return false;
+    if (filterStatus && t.status !== filterStatus) return false;
+    const reqBy = t.createdById === user?.id ? "You" : (t.assignedByName || t.createdBy?.username || "Unknown");
+    if (filterRequestedBy && reqBy !== filterRequestedBy) return false;
+    const reqTo = t.createdById === user?.id ? (t.assignedTo?.username || "Admin") : "-";
+    if (filterRequestTo && reqTo !== filterRequestTo) return false;
     return true;
   });
 
+  const uniqueValues = (values: (string | undefined)[]) => Array.from(new Set(values.filter(Boolean) as string[]));
+  const categoryOptions = uniqueValues(myTasks.map(t => t.category));
+  const siteOptions = uniqueValues(myTasks.map(t => t.siteProject));
+  const statusOptions = uniqueValues(myTasks.map(t => t.status));
+  const requestedByOptions = uniqueValues(myTasks.map(t => t.createdById === user?.id ? "You" : (t.assignedByName || t.createdBy?.username || "Unknown")));
+  const requestedToOptions = uniqueValues(myTasks.map(t => t.createdById === user?.id ? (t.assignedTo?.username || "Admin") : "-"));
+
   const totalPages = Math.ceil(filteredTasks.length / perPage);
   const paginated = filteredTasks.slice((page - 1) * perPage, page * perPage);
+
+  const columns: { key: "all" | "pending" | "locked" | "requests"; label: string; count: number }[] = [
+    { key: "all", label: "All Tasks", count: myTasks.length },
+    { key: "pending", label: "Pending", count: allPendingTasks.length },
+    { key: "locked", label: "Approved & Locked", count: lockedTasks.length },
+    { key: "requests", label: "My Requests", count: myRequestsCount },
+  ];
 
   if (loading || !user) return null;
 
@@ -200,12 +241,7 @@ export default function UserPage() {
         {topAction !== "create" && myTasks.length > 0 && (
           <>
             <div className="flex gap-4 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
-              {[
-                { key: "all" as const, label: "All Tasks", count: myTasks.length },
-                { key: "pending" as const, label: "Pending", count: allPendingTasks.length },
-                { key: "locked" as const, label: "Approved & Locked", count: lockedTasks.length },
-                { key: "requests" as const, label: "Create Request for Admin", count: myRequestsCount },
-              ].map((t) => (
+              {columns.map((t) => (
                 <button key={t.key} onClick={() => { setTab(t.key); setPage(1); setPendingFilter("general"); }} className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${tab === t.key ? "border-indigo-600 text-indigo-600 dark:text-indigo-400" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"}`}>
                   {t.label} ({t.count})
                 </button>
@@ -219,7 +255,7 @@ export default function UserPage() {
                   { key: "extend" as const, label: "Extend Date", count: extendDateCount },
                   { key: "overdue" as const, label: "Overdue", count: overdueCount },
                   { key: "reassign" as const, label: "Reassign (Incomplete)", count: reassignCount },
-                  { key: "completed" as const, label: "Completed (Awaiting Approval)", count: completedTasks.length },
+                  { key: "completed" as const, label: "Completed (Waiting Approval)", count: completedTasks.length },
                 ].map((f) => (
                   <button key={f.key} onClick={() => { setPendingFilter(f.key); setPage(1); }} className={`px-3 py-1.5 rounded-full text-xs font-medium ${pendingFilter === f.key ? "bg-indigo-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}>
                     {f.label} ({f.count})
@@ -235,9 +271,9 @@ export default function UserPage() {
                 {tab === "pending" && pendingFilter === "extend" && "Extend Date Tasks"}
                 {tab === "pending" && pendingFilter === "overdue" && "Overdue Tasks"}
                 {tab === "pending" && pendingFilter === "reassign" && "Reassign (Incomplete) Tasks"}
-                {tab === "pending" && pendingFilter === "completed" && "Completed (Awaiting Approval)"}
+                {tab === "pending" && pendingFilter === "completed" && "Completed (Waiting Approval)"}
                 {tab === "locked" && "Approved & Locked Tasks"}
-                {tab === "requests" && "Create Request for Admin"}
+                {tab === "requests" && "My Requests"}
                 <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">({filteredTasks.length})</span>
               </h2>
             </div>
@@ -250,6 +286,29 @@ export default function UserPage() {
           <p className="text-gray-500 dark:text-gray-400 text-center py-8">No tasks found.</p>
         ) : (
           <>
+            <div className="flex gap-4 mb-4 flex-wrap">
+              <select value={filterCategory} onChange={(e) => { setFilterCategory(e.target.value); setPage(1); }} className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 dark:text-white text-sm">
+                <option value="">All Categories</option>
+                {categoryOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <select value={filterSite} onChange={(e) => { setFilterSite(e.target.value); setPage(1); }} className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 dark:text-white text-sm">
+                <option value="">All Sites</option>
+                {siteOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <select value={filterRequestedBy} onChange={(e) => { setFilterRequestedBy(e.target.value); setPage(1); }} className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 dark:text-white text-sm">
+                <option value="">All Requested By</option>
+                {requestedByOptions.map((u) => <option key={u} value={u}>{u}</option>)}
+              </select>
+              <select value={filterRequestTo} onChange={(e) => { setFilterRequestTo(e.target.value); setPage(1); }} className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 dark:text-white text-sm">
+                <option value="">All Request To</option>
+                {requestedToOptions.map((u) => <option key={u} value={u}>{u}</option>)}
+              </select>
+              <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }} className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 dark:text-white text-sm">
+                <option value="">All Status</option>
+                {statusOptions.map((s) => <option key={s} value={s}>{s.replace("_", " ")}</option>)}
+              </select>
+            </div>
+
             <div className="flex justify-between items-center mb-2">
               <p className="text-sm text-gray-500 dark:text-gray-400">{filteredTasks.length} task(s) shown</p>
               <button onClick={() => downloadExcel(tasksToExcelRows(filteredTasks), "my_tasks")} className="bg-green-600 text-white px-3 py-1.5 rounded-md hover:bg-green-700 text-xs font-medium">Download Excel</button>
@@ -298,15 +357,15 @@ export default function UserPage() {
                           {task.extensionCount > 0 && <div className="text-xs text-red-600 dark:text-red-400">Ext: {task.extensionCount}</div>}
                         </td>
                         {tab !== "requests" && (
-                        <td className="px-3 py-2 border dark:border-gray-700">
-                          <StatusBadge status={task.status} />
-                          {task.extendStatus === "PENDING" && <span className="block text-[10px] text-orange-600 dark:text-orange-400 mt-0.5">Ext Pending</span>}
-                          {task.reassignReason && <span className="block text-[10px] text-orange-600 dark:text-orange-400 mt-0.5">Reassigned</span>}
-                        </td>
-                        )}
-                        {tab !== "requests" && (
-                        <td className="px-3 py-2 border dark:border-gray-700">
-                          <div className="flex gap-1 flex-wrap">
+<td className="px-3 py-2 border dark:border-gray-700">
+  <StatusBadge status={task.status} />
+  {task.extendStatus === "PENDING" && <span className="block text-[10px] text-orange-600 dark:text-orange-400 mt-0.5">Ext Pending</span>}
+  {task.reassignReason && <span className="block text-[10px] text-orange-600 dark:text-orange-400 mt-0.5">Reassigned</span>}
+</td>
+)}
+{tab !== "requests" && (
+<td className="px-3 py-2 border dark:border-gray-700">
+  <div className="flex gap-1 flex-wrap">
                             {task.hasAttachment && (
                               <button onClick={async () => { try { const full = await api.tasks.getById(task.id); const url = full.attachmentUrl || (full.attachments && full.attachments[0]); if (url) openAttachment(url, `${task.name}_attachment`); else alert("Attachment not found"); } catch { alert("Failed to load attachment"); } }} className="text-[10px] text-blue-600 dark:text-blue-400 underline">Attachment</button>
                             )}
@@ -347,7 +406,7 @@ export default function UserPage() {
                               )}
                             </div>
                           )}
-                        </td>
+                          </td>
                         )}
                       </tr>
                     );

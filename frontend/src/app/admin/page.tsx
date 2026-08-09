@@ -309,6 +309,16 @@ export default function AdminPage() {
   const totalPages = Math.ceil(filteredTasks.length / perPage);
   const paginated = filteredTasks.slice((page - 1) * perPage, page * perPage);
 
+  const columns: { key: "all" | "pending" | "approved" | "requests" | "users" | "categories" | "sites"; label: string; count: number }[] = [
+    { key: "all", label: "All Tasks", count: tasks.length },
+    { key: "pending", label: "Pending", count: allPendingTasks.length },
+    { key: "approved", label: "Approved & Locked", count: approvedTasks.length },
+    { key: "requests", label: "Requests by Users", count: userRequestsCount },
+    { key: "users", label: "Users", count: users.length },
+    { key: "categories", label: "Categories", count: categories.length },
+    { key: "sites", label: "Sites", count: sites.length },
+  ];
+
   if (loading || !user) return null;
 
   return (
@@ -350,15 +360,7 @@ export default function AdminPage() {
         </div>
 
         <div className="flex gap-4 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
-          {[
-            { key: "all" as const, label: "All Tasks", count: tasks.length },
-            { key: "pending" as const, label: "Pending", count: allPendingTasks.length },
-            { key: "approved" as const, label: "Approved & Locked", count: approvedTasks.length },
-            { key: "requests" as const, label: "Requests by Users", count: userRequestsCount },
-            { key: "users" as const, label: "Users", count: users.length },
-            { key: "categories" as const, label: "Categories", count: categories.length },
-            { key: "sites" as const, label: "Sites", count: sites.length },
-          ].map((t) => (
+          {columns.map((t) => (
             <button key={t.key} onClick={() => { setTab(t.key); setPage(1); setFilterStatus(""); setQuickFilter("all"); setPendingFilter("general"); }} className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${tab === t.key ? "border-indigo-600 text-indigo-600 dark:text-indigo-400" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"}`}>
               {t.label} ({t.count})
             </button>
@@ -486,7 +488,7 @@ export default function AdminPage() {
                   { key: "extend" as const, label: "Extend Date", count: extensionCount },
                   { key: "overdue" as const, label: "Overdue", count: overdueCount },
                   { key: "reassign" as const, label: "Reassign (Incomplete)", count: reassignCount },
-                  { key: "completed" as const, label: "Completed (Awaiting Approval)", count: awaitingApprovalCount },
+                  { key: "completed" as const, label: "Completed (Waiting Approval)", count: awaitingApprovalCount },
                 ].map((f) => (
                   <button key={f.key} onClick={() => { setPendingFilter(f.key); setPage(1); }} className={`px-3 py-1.5 rounded-full text-xs font-medium ${pendingFilter === f.key ? "bg-indigo-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}>
                     {f.label} ({f.count})
@@ -593,6 +595,9 @@ export default function AdminPage() {
                             )}
                             {!task.locked && task.status !== "LOCKED" && task.status !== "COMPLETED" && canManage && (
                               <Link href={`/admin/tasks/${task.id}/edit`} className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded hover:bg-indigo-700">Edit</Link>
+                            )}
+                            {task.assignedToId === user?.id && (
+                              <Link href={`/user/tasks/${task.id}`} className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded hover:bg-indigo-700">Open</Link>
                             )}
                             {task.status === "COMPLETED" && !task.locked && canManage && (
                               <button onClick={() => handleApproveComplete(task.id)} className="text-[10px] bg-green-600 text-white px-2 py-0.5 rounded hover:bg-green-700">Accept & Approve</button>

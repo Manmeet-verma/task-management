@@ -20,12 +20,17 @@ export async function GET(request: Request) {
     const users = usersSnapshot.exists() ? Object.values(usersSnapshot.val() as Record<string, any>) : [];
 
     const totalTasks = tasks.length;
-    const completedTasks = tasks.filter((t: any) => t.status === "COMPLETED" || t.status === "LOCKED").length;
-    const pendingTasks = tasks.filter((t: any) => t.status === "PENDING" || t.extendStatus === "PENDING").length;
+    const completedTasks = tasks.filter((t: any) => t.status === "COMPLETED").length;
+    const allPendingTasks = tasks.filter((t: any) => t.status !== "LOCKED" && t.status !== "VERIFIED" && !t.locked);
+    const pendingTasks = allPendingTasks.length;
+    const isOverdue = (t: any) => {
+      const deadline = new Date(t.deadline);
+      return new Date(deadline.getTime() + 24 * 60 * 60 * 1000) < new Date() && t.status !== "COMPLETED" && t.status !== "LOCKED" && t.status !== "VERIFIED";
+    };
+    const overdueTasks = allPendingTasks.filter((t: any) => t.status !== "COMPLETED" && isOverdue(t) && !t.reassignReason && t.extendStatus !== "PENDING").length;
+    const extensionRequests = allPendingTasks.filter((t: any) => t.status !== "COMPLETED" && t.extendStatus === "PENDING").length;
     const inProgressTasks = tasks.filter((t: any) => t.status === "IN_PROGRESS").length;
-    const extensionRequests = tasks.filter((t: any) => t.extendStatus === "PENDING").length;
-    const overdueTasks = tasks.filter((t: any) => new Date(t.deadline) < new Date() && t.status !== "LOCKED" && t.status !== "COMPLETED").length;
-    const lockedTasks = tasks.filter((t: any) => t.status === "LOCKED" || t.locked).length;
+    const lockedTasks = tasks.filter((t: any) => t.status === "LOCKED").length;
 
     const totalUsers = users.length;
     const totalAdmins = users.filter((u: any) => u.role === "ADMIN").length;

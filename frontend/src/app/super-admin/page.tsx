@@ -429,8 +429,8 @@ export default function SuperAdminPage() {
                 <p className="text-sm text-gray-500 dark:text-gray-400">Total Tasks</p>
                 <p className="text-2xl font-bold dark:text-white">{stats?.totalTasks || 0}</p>
               </button>
-              <button onClick={() => { setTab("all"); setFilterStatus("COMPLETED"); setPage(1); }} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer">
-                <p className="text-sm text-gray-500 dark:text-gray-400">Completed</p>
+              <button onClick={() => { setTab("pending"); setPendingFilter("completed"); setPage(1); }} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer">
+                <p className="text-sm text-gray-500 dark:text-gray-400">Completed (Waiting Approval)</p>
                 <p className="text-2xl font-bold text-green-600">{stats?.completedTasks || 0}</p>
               </button>
               <button onClick={() => { setTab("pending"); setPendingFilter("general"); setPage(1); }} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-left hover:shadow-md transition-shadow cursor-pointer">
@@ -599,7 +599,7 @@ export default function SuperAdminPage() {
                   { key: "extend" as const, label: "Extend Date", count: extensionCount },
                   { key: "overdue" as const, label: "Overdue", count: overdueCount },
                   { key: "reassign" as const, label: "Reassign (Incomplete)", count: reassignCount },
-                  { key: "completed" as const, label: "Completed (Awaiting Approval)", count: awaitingApprovalCount },
+                  { key: "completed" as const, label: "Completed (Waiting Approval)", count: awaitingApprovalCount },
                 ].map((f) => (
                   <button key={f.key} onClick={() => { setPendingFilter(f.key); setPage(1); }} className={`px-3 py-1.5 rounded-full text-xs font-medium ${pendingFilter === f.key ? "bg-amber-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}>
                     {f.label} ({f.count})
@@ -689,6 +689,9 @@ export default function SuperAdminPage() {
                             )}
                             {!task.locked && task.status !== "LOCKED" && task.status !== "COMPLETED" && (
                               <Link href={`/admin/tasks/${task.id}/edit`} className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded hover:bg-indigo-700">Edit</Link>
+                            )}
+                            {task.assignedToId === user?.id && (
+                              <Link href={`/user/tasks/${task.id}`} className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded hover:bg-indigo-700">Open</Link>
                             )}
                             {task.status === "COMPLETED" && !task.locked && (
                               <button onClick={() => handleApproveComplete(task.id)} className="text-[10px] bg-green-600 text-white px-2 py-0.5 rounded hover:bg-green-700">Accept & Approve</button>

@@ -102,7 +102,7 @@ export default function NewTaskPage() {
   const redirectBack = () => router.push(user.role === "ADMIN" ? "/admin" : "/user");
 
   const availableUsers = isUser
-    ? users.filter(u => u.role === "ADMIN")
+    ? users.filter(u => u.id !== user.id)
     : user?.isMaster
       ? users.filter(u => u.id !== user.id)
       : users.filter(u => u.role === "USER");
@@ -181,14 +181,14 @@ export default function NewTaskPage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {isUser ? "Send Request To (Admin) *" : "Assign To (User) *"}
+              {isUser ? "Send Request To *" : "Assign To (User) *"}
             </label>
             <select value={assignedToId} onChange={(e) => setAssignedToId(e.target.value)} required className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
-              <option value="">{isUser ? "Select admin" : "Select user"}</option>
+              <option value="">{isUser ? "Select user / admin" : "Select user"}</option>
               {availableUsers.map((u) => (
                 <option key={u.id} value={u.id}>{u.username} ({u.role}{u.isMaster ? " / Master" : ""})</option>
               ))}
-              {availableUsers.length === 0 && <option value="" disabled>No {isUser ? "admins" : "users"} available</option>}
+              {availableUsers.length === 0 && <option value="" disabled>No {isUser ? "users" : "users"} available</option>}
             </select>
           </div>
           <div>

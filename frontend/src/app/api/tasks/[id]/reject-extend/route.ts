@@ -22,7 +22,6 @@ export async function POST(
   try {
     const user = verifyAuth(request);
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (user.role !== "ADMIN") return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 
     const { id } = await params;
     const body = await request.json().catch(() => ({}));
@@ -38,7 +37,7 @@ export async function POST(
     const isMaster = userData?.isMaster === true;
 
     if (task.createdById !== user.id && !isMaster) {
-      return NextResponse.json({ error: "Only the admin who assigned this task can reject extensions" }, { status: 403 });
+      return NextResponse.json({ error: "Only the person who created this task can reject extensions" }, { status: 403 });
     }
 
     if (task.extendStatus !== "PENDING")

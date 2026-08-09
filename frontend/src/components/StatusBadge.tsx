@@ -15,7 +15,7 @@ const statusStyles: Record<string, string> = {
 const statusLabels: Record<string, string> = {
   PENDING_RESUBMIT: "Pending Resubmit",
   IN_PROGRESS: "Pending",
-  COMPLETED: "Awaiting Approval",
+  COMPLETED: "Waiting Approval",
   LOCKED: "Approved & Locked",
   EXTEND_PENDING: "Extend Request",
 };
