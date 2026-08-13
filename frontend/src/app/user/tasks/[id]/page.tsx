@@ -352,12 +352,18 @@ export default function TaskDetailPage() {
 
         {task.status === "REJECTED" && task.rejectReason && (
           <div className="bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800 p-6 mb-6">
-            <h2 className="text-lg font-semibold text-red-800 dark:text-red-300">Task Rejected</h2>
-            <p className="text-sm text-red-700 dark:text-red-400">Admin has rejected this task.</p>
+            <h2 className="text-lg font-semibold text-red-800 dark:text-red-300">Work Completion Rejected</h2>
+            <p className="text-sm text-red-700 dark:text-red-400">Your work completion request has been rejected. The work submitted was not fulfilled as expected.</p>
             <div className="mt-3 bg-white dark:bg-gray-800 border border-red-200 dark:border-red-800 rounded-md p-3">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reason:</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Rejection Reason:</p>
               <p className="text-sm text-red-600 dark:text-red-400">{task.rejectReason}</p>
             </div>
+            {task.rejectedBy && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Rejected by: {task.rejectedBy}</p>
+            )}
+            {task.rejectedAt && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">Rejected at: {new Date(task.rejectedAt).toLocaleString()}</p>
+            )}
           </div>
         )}
 

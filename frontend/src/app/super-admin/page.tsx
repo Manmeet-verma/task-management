@@ -55,6 +55,9 @@ export default function SuperAdminPage() {
   const [rejectExtendReason, setRejectExtendReason] = useState("");
   const [remarksTaskId, setRemarksTaskId] = useState<string | null>(null);
   const [remarksText, setRemarksText] = useState("");
+  const [rejectCompleteId, setRejectCompleteId] = useState<string | null>(null);
+  const [rejectCompleteReason, setRejectCompleteReason] = useState("");
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
   const [now, setNow] = useState(new Date());
 
   const toggleExpandTask = async (task: Task) => {
@@ -143,6 +146,50 @@ export default function SuperAdminPage() {
   const handleDeleteTask = async (id: string) => {
     if (!confirm("Delete this task?")) return;
     try { await api.tasks.delete(id); loadData(); } catch (err: any) { alert(err.message || "Failed"); }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedTaskIds.size === 0) return;
+    if (!confirm(`Delete ${selectedTaskIds.size} task(s)? This cannot be undone.`)) return;
+    try {
+      for (const id of selectedTaskIds) {
+        await api.tasks.delete(id);
+      }
+      setSelectedTaskIds(new Set());
+      loadData();
+    } catch (err: any) { alert(err.message || "Failed to delete some tasks"); }
+  };
+
+  const toggleSelectTask = (id: string) => {
+    setSelectedTaskIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedTaskIds.size === paginated.length) {
+      setSelectedTaskIds(new Set());
+    } else {
+      setSelectedTaskIds(new Set(paginated.map(t => t.id)));
+    }
+  };
+
+  const handleRejectComplete = async (id: string) => {
+    if (!rejectCompleteReason.trim()) { alert("Please provide a rejection reason"); return; }
+    try {
+      const res = await fetch(`/api/tasks/${id}/reject-complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token")}` },
+        body: JSON.stringify({ reason: rejectCompleteReason.trim() }),
+      });
+      if (!res.ok) { const data = await res.json(); throw new Error(data.error || "Failed"); }
+      setRejectCompleteId(null);
+      setRejectCompleteReason("");
+      loadData();
+    } catch (err: any) { alert(err.message || "Failed"); }
   };
 
   const handleApproveComplete = async (id: string) => {
@@ -628,7 +675,14 @@ export default function SuperAdminPage() {
             </div>
 
             <div className="flex justify-between items-center mb-2">
-              <p className="text-sm text-gray-500 dark:text-gray-400">{filteredTasks.length} task(s) found</p>
+              <div className="flex items-center gap-3">
+                <p className="text-sm text-gray-500 dark:text-gray-400">{filteredTasks.length} task(s) found</p>
+                {selectedTaskIds.size > 0 && (
+                  <button onClick={handleBulkDelete} className="bg-red-600 text-white px-3 py-1.5 rounded-md hover:bg-red-700 text-xs font-medium">
+                    Delete Selected ({selectedTaskIds.size})
+                  </button>
+                )}
+              </div>
               <button onClick={() => downloadExcel(tasksToExcelRows(filteredTasks), "superadmin_tasks")} className="bg-green-600 text-white px-3 py-1.5 rounded-md hover:bg-green-700 text-xs font-medium">Download Excel</button>
             </div>
 
@@ -636,6 +690,16 @@ export default function SuperAdminPage() {
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="bg-gray-100 dark:bg-gray-800 text-left">
+                    {tab !== "requests" && (
+                      <th className="px-3 py-2 border dark:border-gray-700 font-medium w-10">
+                        <input
+                          type="checkbox"
+                          checked={paginated.length > 0 && selectedTaskIds.size === paginated.length}
+                          onChange={toggleSelectAll}
+                          className="rounded border-gray-300 dark:border-gray-600"
+                        />
+                      </th>
+                    )}
                     <th className="px-3 py-2 border dark:border-gray-700 font-medium">#</th>
                     <th className="px-3 py-2 border dark:border-gray-700 font-medium">Task Name</th>
                     <th className="px-3 py-2 border dark:border-gray-700 font-medium">Category</th>
@@ -652,6 +716,16 @@ export default function SuperAdminPage() {
                     const overdue = isOverdue(task);
                     return (
                       <tr key={task.id} className={`${overdue ? "bg-red-50 dark:bg-red-900/20" : "bg-white dark:bg-gray-900"} hover:bg-gray-50 dark:hover:bg-gray-800`}>
+                        {tab !== "requests" && (
+                          <td className="px-3 py-2 border dark:border-gray-700">
+                            <input
+                              type="checkbox"
+                              checked={selectedTaskIds.has(task.id)}
+                              onChange={() => toggleSelectTask(task.id)}
+                              className="rounded border-gray-300 dark:border-gray-600"
+                            />
+                          </td>
+                        )}
                         <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-300">{(page - 1) * perPage + idx + 1}</td>
                         <td className="px-3 py-2 border dark:border-gray-700">
                           <div className="flex items-center gap-2">
@@ -694,7 +768,10 @@ export default function SuperAdminPage() {
                               <Link href={`/user/tasks/${task.id}`} className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded hover:bg-indigo-700">Open</Link>
                             )}
                             {task.status === "COMPLETED" && !task.locked && (
-                              <button onClick={() => handleApproveComplete(task.id)} className="text-[10px] bg-green-600 text-white px-2 py-0.5 rounded hover:bg-green-700">Accept & Approve</button>
+                              <>
+                                <button onClick={() => handleApproveComplete(task.id)} className="text-[10px] bg-green-600 text-white px-2 py-0.5 rounded hover:bg-green-700">Accept & Approve</button>
+                                <button onClick={() => { setRejectCompleteId(task.id); setRejectCompleteReason(""); }} className="text-[10px] bg-red-600 text-white px-2 py-0.5 rounded hover:bg-red-700">Reject</button>
+                              </>
                             )}
                             {task.extendStatus === "PENDING" && (
                               <>
@@ -736,6 +813,15 @@ export default function SuperAdminPage() {
                               <div className="flex gap-2">
                                 <button onClick={() => handleRejectExtend(task.id)} className="text-xs bg-red-600 text-white px-2 py-1 rounded">Confirm Reject</button>
                                 <button onClick={() => { setRejectExtendId(null); setRejectExtendReason(""); }} className="text-xs text-gray-500">Cancel</button>
+                              </div>
+                            </div>
+                          )}
+                          {rejectCompleteId === task.id && (
+                            <div className="mt-2 space-y-2">
+                              <input type="text" value={rejectCompleteReason} onChange={(e) => setRejectCompleteReason(e.target.value)} placeholder="Rejection reason (required)" className="text-xs border rounded px-2 py-1 dark:bg-gray-700 dark:text-white dark:border-gray-600 w-full" />
+                              <div className="flex gap-2">
+                                <button onClick={() => handleRejectComplete(task.id)} className="text-xs bg-red-600 text-white px-2 py-1 rounded">Confirm Reject</button>
+                                <button onClick={() => { setRejectCompleteId(null); setRejectCompleteReason(""); }} className="text-xs text-gray-500">Cancel</button>
                               </div>
                             </div>
                           )}

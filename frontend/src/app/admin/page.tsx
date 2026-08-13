@@ -43,6 +43,9 @@ export default function AdminPage() {
   const [remarksText, setRemarksText] = useState("");
   const [rejectTaskId, setRejectTaskId] = useState<string | null>(null);
   const [rejectTaskReason, setRejectTaskReason] = useState("");
+  const [rejectCompleteId, setRejectCompleteId] = useState<string | null>(null);
+  const [rejectCompleteReason, setRejectCompleteReason] = useState("");
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
   const [now, setNow] = useState(new Date());
 
   const toggleExpandTask = async (task: Task) => {
@@ -137,6 +140,50 @@ export default function AdminPage() {
   const handleDeleteTask = async (id: string) => {
     if (!confirm("Delete this task?")) return;
     try { await api.tasks.delete(id); loadData(); } catch (err: any) { alert(err.message || "Failed"); }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedTaskIds.size === 0) return;
+    if (!confirm(`Delete ${selectedTaskIds.size} task(s)? This cannot be undone.`)) return;
+    try {
+      for (const id of selectedTaskIds) {
+        await api.tasks.delete(id);
+      }
+      setSelectedTaskIds(new Set());
+      loadData();
+    } catch (err: any) { alert(err.message || "Failed to delete some tasks"); }
+  };
+
+  const toggleSelectTask = (id: string) => {
+    setSelectedTaskIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedTaskIds.size === paginated.length) {
+      setSelectedTaskIds(new Set());
+    } else {
+      setSelectedTaskIds(new Set(paginated.map(t => t.id)));
+    }
+  };
+
+  const handleRejectComplete = async (id: string) => {
+    if (!rejectCompleteReason.trim()) { alert("Please provide a rejection reason"); return; }
+    try {
+      const res = await fetch(`/api/tasks/${id}/reject-complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token")}` },
+        body: JSON.stringify({ reason: rejectCompleteReason.trim() }),
+      });
+      if (!res.ok) { const data = await res.json(); throw new Error(data.error || "Failed"); }
+      setRejectCompleteId(null);
+      setRejectCompleteReason("");
+      loadData();
+    } catch (err: any) { alert(err.message || "Failed"); }
   };
 
   const handleApproveComplete = async (id: string) => {
@@ -533,7 +580,14 @@ export default function AdminPage() {
             </div>
 
             <div className="flex justify-between items-center mb-2">
-              <p className="text-sm text-gray-500 dark:text-gray-400">{filteredTasks.length} task(s) found</p>
+              <div className="flex items-center gap-3">
+                <p className="text-sm text-gray-500 dark:text-gray-400">{filteredTasks.length} task(s) found</p>
+                {selectedTaskIds.size > 0 && user?.isMaster && (
+                  <button onClick={handleBulkDelete} className="bg-red-600 text-white px-3 py-1.5 rounded-md hover:bg-red-700 text-xs font-medium">
+                    Delete Selected ({selectedTaskIds.size})
+                  </button>
+                )}
+              </div>
               <button onClick={() => downloadExcel(tasksToExcelRows(filteredTasks), "admin_tasks")} className="bg-green-600 text-white px-3 py-1.5 rounded-md hover:bg-green-700 text-xs font-medium">Download Excel</button>
             </div>
 
@@ -541,6 +595,16 @@ export default function AdminPage() {
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="bg-gray-100 dark:bg-gray-800 text-left">
+                    {tab !== "requests" && user?.isMaster && (
+                      <th className="px-3 py-2 border dark:border-gray-700 font-medium w-10">
+                        <input
+                          type="checkbox"
+                          checked={paginated.length > 0 && selectedTaskIds.size === paginated.length}
+                          onChange={toggleSelectAll}
+                          className="rounded border-gray-300 dark:border-gray-600"
+                        />
+                      </th>
+                    )}
                     <th className="px-3 py-2 border dark:border-gray-700 font-medium">#</th>
                     <th className="px-3 py-2 border dark:border-gray-700 font-medium">Task Name</th>
                     <th className="px-3 py-2 border dark:border-gray-700 font-medium">Category</th>
@@ -558,6 +622,16 @@ export default function AdminPage() {
                     const overdue = isOverdue(task);
                     return (
                       <tr key={task.id} className={`${overdue ? "bg-red-50 dark:bg-red-900/20" : "bg-white dark:bg-gray-900"} hover:bg-gray-50 dark:hover:bg-gray-800`}>
+                        {tab !== "requests" && user?.isMaster && (
+                          <td className="px-3 py-2 border dark:border-gray-700">
+                            <input
+                              type="checkbox"
+                              checked={selectedTaskIds.has(task.id)}
+                              onChange={() => toggleSelectTask(task.id)}
+                              className="rounded border-gray-300 dark:border-gray-600"
+                            />
+                          </td>
+                        )}
                         <td className="px-3 py-2 border dark:border-gray-700 dark:text-gray-300">{(page - 1) * perPage + idx + 1}</td>
                         <td className="px-3 py-2 border dark:border-gray-700">
                           <div className="flex items-center gap-2">
@@ -600,7 +674,10 @@ export default function AdminPage() {
                               <Link href={`/user/tasks/${task.id}`} className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded hover:bg-indigo-700">Open</Link>
                             )}
                             {task.status === "COMPLETED" && !task.locked && canManage && (
-                              <button onClick={() => handleApproveComplete(task.id)} className="text-[10px] bg-green-600 text-white px-2 py-0.5 rounded hover:bg-green-700">Accept & Approve</button>
+                              <>
+                                <button onClick={() => handleApproveComplete(task.id)} className="text-[10px] bg-green-600 text-white px-2 py-0.5 rounded hover:bg-green-700">Accept & Approve</button>
+                                <button onClick={() => { setRejectCompleteId(task.id); setRejectCompleteReason(""); }} className="text-[10px] bg-red-600 text-white px-2 py-0.5 rounded hover:bg-red-700">Reject</button>
+                              </>
                             )}
                             {task.extendStatus === "PENDING" && canManage && (
                               <>
@@ -611,7 +688,7 @@ export default function AdminPage() {
                             {canManage && !task.locked && task.status !== "LOCKED" && task.status !== "COMPLETED" && (
                               <button onClick={() => { setReassigningId(task.id); setReassignUserId(""); setReassignReason(""); }} className="text-[10px] text-orange-600 dark:text-orange-400 underline">Reassign</button>
                             )}
-                            {canManage && (
+                            {canManage && user?.isMaster && (
                               <button onClick={() => handleDeleteTask(task.id)} className="text-[10px] text-red-600 dark:text-red-400 underline">Delete</button>
                             )}
                             {task.hasVoiceNote && (
@@ -644,6 +721,15 @@ export default function AdminPage() {
                               <div className="flex gap-2">
                                 <button onClick={() => handleRejectExtend(task.id)} className="text-xs bg-red-600 text-white px-2 py-1 rounded">Confirm Reject</button>
                                 <button onClick={() => { setRejectExtendId(null); setRejectExtendReason(""); }} className="text-xs text-gray-500">Cancel</button>
+                              </div>
+                            </div>
+                          )}
+                          {rejectCompleteId === task.id && (
+                            <div className="mt-2 space-y-2">
+                              <input type="text" value={rejectCompleteReason} onChange={(e) => setRejectCompleteReason(e.target.value)} placeholder="Rejection reason (required)" className="text-xs border rounded px-2 py-1 dark:bg-gray-700 dark:text-white dark:border-gray-600 w-full" />
+                              <div className="flex gap-2">
+                                <button onClick={() => handleRejectComplete(task.id)} className="text-xs bg-red-600 text-white px-2 py-1 rounded">Confirm Reject</button>
+                                <button onClick={() => { setRejectCompleteId(null); setRejectCompleteReason(""); }} className="text-xs text-gray-500">Cancel</button>
                               </div>
                             </div>
                           )}

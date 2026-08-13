@@ -190,6 +190,8 @@ export interface Task {
   adminRemarks?: string;
   voiceNoteUrl?: string;
   extendAttachments?: string[];
+  rejectedBy?: string;
+  rejectedAt?: string;
   history?: { date: string; action: string; details: string; performedBy?: string }[];
 }
 

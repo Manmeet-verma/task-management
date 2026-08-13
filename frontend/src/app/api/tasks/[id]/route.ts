@@ -122,8 +122,8 @@ export async function DELETE(
     const userData = userSnapshot.exists() ? userSnapshot.val() : null;
     const isMaster = userData?.isMaster === true;
 
-    if (task.createdById !== user.id && !isMaster) {
-      return NextResponse.json({ error: "Only the admin who assigned this task can delete it" }, { status: 403 });
+    if (!isMaster) {
+      return NextResponse.json({ error: "Only Super Admin can delete tasks" }, { status: 403 });
     }
 
     await remove(ref(db, `tasks/${id}`));
