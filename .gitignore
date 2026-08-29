@@ -9,3 +9,6 @@ next/
 uploads/
 dist/
 build/
+backend/firebase-adminsdk.json
+*.err
+backend/prisma/*.db

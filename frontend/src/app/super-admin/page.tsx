@@ -152,9 +152,7 @@ export default function SuperAdminPage() {
     if (selectedTaskIds.size === 0) return;
     if (!confirm(`Delete ${selectedTaskIds.size} task(s)? This cannot be undone.`)) return;
     try {
-      for (const id of selectedTaskIds) {
-        await api.tasks.delete(id);
-      }
+      await api.tasks.bulkDelete(Array.from(selectedTaskIds));
       setSelectedTaskIds(new Set());
       loadData();
     } catch (err: any) { alert(err.message || "Failed to delete some tasks"); }

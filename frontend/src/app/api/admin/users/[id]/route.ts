@@ -50,6 +50,14 @@ export async function DELETE(
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     if (user.role !== "ADMIN") return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 
+    const currentUserRef = ref(db, `users/${user.id}`);
+    const currentUserSnap = await get(currentUserRef);
+    const currentUser = currentUserSnap.exists() ? currentUserSnap.val() : null;
+
+    if (!currentUser?.isMaster) {
+      return NextResponse.json({ error: "Only Super Admin can delete users" }, { status: 403 });
+    }
+
     const { id } = await params;
 
     const userRef = ref(db, `users/${id}`);

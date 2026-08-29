@@ -14,6 +14,7 @@ router.get('/:id', authMiddleware, taskController.getById);
 router.post('/', authMiddleware, adminMiddleware, taskController.create);
 router.put('/:id', authMiddleware, adminMiddleware, taskController.update);
 router.delete('/:id', authMiddleware, adminMiddleware, taskController.remove);
+router.post('/bulk-delete', authMiddleware, adminMiddleware, taskController.removeMany);
 
 router.post('/:id/claim', authMiddleware, taskController.claim);
 router.post('/:id/accept', authMiddleware, adminMiddleware, taskController.accept);

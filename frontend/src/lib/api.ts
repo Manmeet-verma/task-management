@@ -58,6 +58,8 @@ export const api = {
       request<Task>(`/tasks/${id}`, { method: "PUT", body: data }),
     delete: (id: string) =>
       request<{ message: string }>(`/tasks/${id}`, { method: "DELETE" }),
+    bulkDelete: (ids: string[]) =>
+      request<{ message: string; deleted: number }>(`/tasks/bulk-delete`, { method: "POST", body: { ids } }),
     claim: (id: string, userDeadline?: string) =>
       request<Task>(`/tasks/${id}/claim`, { method: "POST", body: { userDeadline } }),
     accept: (id: string) =>

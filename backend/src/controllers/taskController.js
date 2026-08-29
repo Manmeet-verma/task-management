@@ -1,5 +1,11 @@
 const { db, ref, get, push, set, update, remove } = require('../config/db');
 
+async function isSuperAdmin(userId) {
+  const snapshot = await get(ref(db, `users/${userId}`));
+  const user = snapshot.exists() ? snapshot.val() : null;
+  return !!(user && user.isMaster);
+}
+
 exports.create = async (req, res) => {
   try {
     const { name, category, siteProject, deadline, priority, description, assignedToIds } = req.body;
@@ -217,8 +223,37 @@ exports.update = async (req, res) => {
 
 exports.remove = async (req, res) => {
   try {
+    if (!(await isSuperAdmin(req.user.id))) {
+      return res.status(403).json({ error: 'Only Super Admin can delete tasks' });
+    }
     await remove(ref(db, `tasks/${req.params.id}`));
     res.json({ message: 'Task deleted' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.removeMany = async (req, res) => {
+  try {
+    if (!(await isSuperAdmin(req.user.id))) {
+      return res.status(403).json({ error: 'Only Super Admin can delete tasks' });
+    }
+
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'No task ids provided' });
+    }
+
+    let deleted = 0;
+    for (const id of ids) {
+      const snapshot = await get(ref(db, `tasks/${id}`));
+      if (snapshot.exists()) {
+        await remove(ref(db, `tasks/${id}`));
+        deleted++;
+      }
+    }
+
+    res.json({ message: `${deleted} task(s) deleted`, deleted });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -397,6 +432,64 @@ exports.approveComplete = async (req, res) => {
     history.push({ date: new Date().toISOString(), action: 'Approved & Locked', details: `Task approved and locked by admin`, performedBy: req.user.id });
 
     await update(taskRef, { status: 'VERIFIED', locked: true, history, updatedAt: new Date().toISOString() });
+    const updated = (await get(taskRef)).val();
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.rejectComplete = async (req, res) => {
+  try {
+    const { reason } = req.body;
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ error: 'Rejection reason is required' });
+    }
+
+    const taskRef = ref(db, `tasks/${req.params.id}`);
+    const snapshot = await get(taskRef);
+    if (!snapshot.exists()) return res.status(404).json({ error: 'Task not found' });
+
+    const task = snapshot.val();
+    if (task.status !== 'COMPLETED') {
+      return res.status(400).json({ error: 'Task is not in COMPLETED status' });
+    }
+
+    const requester = (await get(ref(db, `users/${req.user.id}`))).val();
+    const adminName = requester && requester.username ? requester.username : 'Admin';
+
+    const history = task.history || [];
+    history.push({
+      date: new Date().toISOString(),
+      action: 'COMPLETION_REJECTED',
+      details: `Work completion rejected by ${adminName}. Reason: ${reason.trim()}`,
+      performedBy: adminName,
+    });
+
+    const updates = {
+      status: 'REJECTED',
+      rejectReason: reason.trim(),
+      rejectedBy: adminName,
+      rejectedAt: new Date().toISOString(),
+      history,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await update(taskRef, updates);
+
+    if (task.assignedToId) {
+      const notifRef = push(ref(db, 'notifications'));
+      await set(notifRef, {
+        id: notifRef.key,
+        userId: task.assignedToId,
+        message: `Your work completion request for "${task.name}" has been rejected by ${adminName}. Reason: ${reason.trim()}`,
+        type: 'COMPLETION_REJECTED',
+        taskId: req.params.id,
+        read: false,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
     const updated = (await get(taskRef)).val();
     res.json(updated);
   } catch (err) {
