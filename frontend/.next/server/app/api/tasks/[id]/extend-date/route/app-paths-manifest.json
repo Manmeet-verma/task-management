@@ -1,0 +1,3 @@
+{
+  "/api/tasks/[id]/extend-date/route": "app/api/tasks/[id]/extend-date/route.js"
+}

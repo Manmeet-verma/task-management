@@ -1,0 +1,3 @@
+{
+  "/api/tasks/[id]/voice-note/route": "app/api/tasks/[id]/voice-note/route.js"
+}

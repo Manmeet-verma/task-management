@@ -14,7 +14,13 @@
 /coverage
 
 # next.js
-/.next/
+# The production build output is committed on purpose. Hosts that cannot
+# run "next build" (Hostinger shared hosting ships a glibc older than
+# Next's native SWC binary requires) would otherwise have no .next and
+# could never start. Build caches and dev output stay ignored.
+/.next/cache/
+/.next/dev/
+/.next/trace
 /out/
 
 # production

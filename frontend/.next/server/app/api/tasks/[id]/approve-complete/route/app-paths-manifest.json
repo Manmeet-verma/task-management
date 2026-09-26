@@ -1,0 +1,3 @@
+{
+  "/api/tasks/[id]/approve-complete/route": "app/api/tasks/[id]/approve-complete/route.js"
+}
